@@ -5,8 +5,8 @@
 import matplotlib.pyplot as plt
 import random
 
-JUMPS = 25
-EXPERIMENTS = 5
+JUMPS = 15
+EXPERIMENTS = 1000
 
 def random_walk(jumps):
   position = 0
@@ -20,7 +20,7 @@ results = []
 for j in range (EXPERIMENTS):
   results.append(random_walk(JUMPS))
 
-plt.plot(random_walk(JUMPS)[0])
+#plt.plot(random_walk(JUMPS)[0])
 #plt.plot([result[0] for result in results],marker = 'o')
-#plt.hist([result[1] for result in results])
+plt.hist([result[1] for result in results])
 plt.show()
