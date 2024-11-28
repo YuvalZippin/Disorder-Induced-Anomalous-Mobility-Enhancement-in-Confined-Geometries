@@ -4,23 +4,48 @@
 
 import matplotlib.pyplot as plt
 import random
+import numpy as np
+from scipy.stats import norm, gaussian_kde
+from sklearn.metrics import r2_score
 
-JUMPS = 15
-EXPERIMENTS = 1000
+JUMPS = 500
+EXPERIMENTS = 125_000
+RIGHT_PROB = 0.7  # Change this value to adjust the probability of going right
 
-def random_walk(jumps):
-  position = 0
+def random_walk(jumps, right_prob):
+  position = 50
   track = [position]
   for i in range(jumps):
-    position += random.choice([-1, 1])
+    if random.random() < right_prob:
+      position += 1
+    else:
+      position -= 1
     track.append(position)
-  return track,position
+  return track, position
 
 results = []
-for j in range (EXPERIMENTS):
-  results.append(random_walk(JUMPS))
+for j in range(EXPERIMENTS):
+  results.append(random_walk(JUMPS, RIGHT_PROB))
 
-#plt.plot(random_walk(JUMPS)[0])
-#plt.plot([result[0] for result in results],marker = 'o')
-plt.hist([result[1] for result in results])
+# Get final positions from all experiments
+final_positions = [result[1] for result in results]
+
+# Calculate the mean and standard deviation of the final positions
+mean = np.mean(final_positions)
+std_dev = np.std(final_positions)
+
+# Generate x-axis values for the Gaussian curve and histogram bins
+x = np.linspace(min(final_positions), max(final_positions), 100)
+
+# Create the histogram with the specified bins
+plt.hist(final_positions, bins=x, density=True, alpha=0.7, label='Histogram')
+
+# Plot the Gaussian curve
+gaussian_fit = norm.pdf(x, mean, std_dev)
+plt.plot(x, gaussian_fit, color='red', label='Gaussian Fit')
+
+plt.xlabel("Final Position")
+plt.ylabel("Density")
+plt.title(f"Random Walks (Jumps: {JUMPS}, Experiments: {EXPERIMENTS}, Right Prob: {RIGHT_PROB})")
+plt.legend()
 plt.show()
