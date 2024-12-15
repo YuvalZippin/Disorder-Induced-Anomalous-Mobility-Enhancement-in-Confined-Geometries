@@ -2,27 +2,6 @@ import random
 import matplotlib.pyplot as plt
 import numpy as np
 
-def func(x):
-  """
-  Defines the waiting time distribution g(x) = x^-2 
-  within the range [0.1, 1].
-  """
-  if x <= 0:
-    return 0  # Avoid division by zero and negative waiting times
-  elif x < 0.1:
-    return 0.1  # Lower bound for waiting time
-  else:
-    return x**-2
-
-def waiting_time_from_g(a=0.1, b=1):
-  """
-  Generates a waiting time using rejection sampling from g(x) = x^-2 
-  within the range [a, b].
-  """
-  while True:
-    y = random.uniform(0, 1)
-    return func(y)
-
 def random_walk_with_waiting_time(simulation_time, prob_right, waiting_time_dist):
   """
   Simulates a 1-dimensional random walk with fixed step size of 1 and 
@@ -50,27 +29,41 @@ def random_walk_with_waiting_time(simulation_time, prob_right, waiting_time_dist
     position += step
     positions.append(position)
 
+    # Generate waiting time using the provided distribution
     waiting_time = waiting_time_dist() 
+
     current_time += waiting_time
     times.append(current_time)
 
   return positions, times
 
-# Main execution block
-if __name__ == "__main__":
-  simulation_time = 100
-  prob_right = 0.5 
+def exponential_waiting_time(rate=0.1):
+  """
+  Generates a waiting time from an exponential distribution.
+  """
+  return np.random.exponential(1/rate)
 
-  positions, times = random_walk_with_waiting_time(simulation_time, prob_right, waiting_time_from_g)
-
+def plot_random_walk(positions, times):
   plt.figure(figsize=(10, 6))
 
+  # Plot jumps as vertical lines
   for i in range(len(positions) - 1):
     plt.plot([times[i], times[i]], [positions[i], positions[i+1]], 'b-', linewidth=2) 
+
+  # Plot waiting times as horizontal lines
+  for i in range(len(positions) - 1):
     plt.plot([times[i], times[i+1]], [positions[i+1], positions[i+1]], 'b--', linewidth=2) 
 
   plt.xlabel("Time")
   plt.ylabel("Position")
-  plt.title("Biased Random Walk with Waiting Time (g(x)=x^-2)")
+  plt.title("Biased Random Walk with Exponential Waiting Times")
   plt.grid(True)
   plt.show()
+
+if __name__ == "__main__":
+  simulation_time = 100  # Adjust as needed
+  prob_right = 0.5  # Probability of moving right
+
+  positions, times = random_walk_with_waiting_time(simulation_time, prob_right, exponential_waiting_time)
+
+  plot_random_walk(positions, times)
