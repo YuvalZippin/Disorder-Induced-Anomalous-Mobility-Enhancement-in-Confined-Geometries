@@ -1,9 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Define the range of t values (adjust as needed)
-t_values = np.linspace(1, 100, 1_000)  # Start from 1 to avoid division by zero
+# Define the range of values (adjust as needed)
 x_values = np.linspace(0.1,1,1_000)
+t_values = np.linspace(1, 100, 1_000)  # Start from 1 to avoid division by zero
 
 # Define the functions
 def g(x):
