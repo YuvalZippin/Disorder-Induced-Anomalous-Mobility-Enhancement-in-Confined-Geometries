@@ -58,8 +58,8 @@ def random_walk_with_waiting_time(simulation_time, prob_right, waiting_time_dist
 
 # Main execution block
 if __name__ == "__main__":
-  simulation_time = 100
-  prob_right = 0.5  
+  simulation_time = 250
+  prob_right = 0.5
 
   positions, times = random_walk_with_waiting_time(simulation_time, prob_right, waiting_time_from_g)
 
