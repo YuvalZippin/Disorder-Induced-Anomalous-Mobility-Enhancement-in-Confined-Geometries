@@ -21,7 +21,7 @@ def multi_sim(num_sims, simulation_time, prob_right):
     return final_positions
 
 def main():
-    num_sims = 150_000
+    num_sims = 250_000
     simulation_time = 10_000
     prob_right = 0.5
 

@@ -27,8 +27,8 @@ def T_half(t):
     return 0.5 * t**(-3/2)
 
 def main():
-    num_sims = 125_000
-    simulation_time = 1_250
+    num_sims = 100_000
+    simulation_time = 3_500_000
     prob_right = 0.5
 
     # Run the simulations
@@ -43,7 +43,7 @@ def main():
         print(f"Final position {i+1}: {final_positions[i]}")
 
     # Create a time series for the T(t) function
-    t_values = np.linspace(simulation_time/1000, simulation_time, 10000)  # Adjust range as needed
+    t_values = np.linspace(1, 150, 10000)  # Adjust range as needed
     T_half_values = T_half(t_values)
 
     # Create the histogram

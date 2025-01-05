@@ -21,8 +21,8 @@ def multi_sim(num_sims, simulation_time, prob_right):
     return final_positions
 
 def main():
-    num_sims = 100_000
-    simulation_time = 5_000
+    num_sims = 1_000_000
+    simulation_time = 1_000
     prob_right = 0.5
 
     # Run the simulations
@@ -44,7 +44,7 @@ def main():
         return 0.5 * t**(-3/2)
 
     # Generate time values for plotting T(t)
-    time_values = np.linspace(0.1, simulation_time, 100)
+    time_values = np.linspace(1, 100)
     T_values = T(time_values)
 
     # Plot T(t) on the same graph

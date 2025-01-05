@@ -2,12 +2,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Define the range of values (adjust as needed)
-x_values = np.linspace(0.1, 1, 1000)
+x_values = np.linspace(0, 1, 1000)
 t_values = np.linspace(1, 100, 1000)  # Start from 1 to avoid division by zero
 
 # Define the functions
 def g(x):
-    return x**(-2)
+    return  (1-x)**(-2)
 
 def T_half(t):
     return 0.5 * t**(-3/2)  # Renamed for clarity

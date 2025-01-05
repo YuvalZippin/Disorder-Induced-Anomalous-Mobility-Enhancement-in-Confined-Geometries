@@ -1,6 +1,7 @@
 import random
 import matplotlib.pyplot as plt
 import numpy as np
+import func
 
 def func(x):
   """
@@ -21,9 +22,9 @@ def waiting_time_from_g(a=0, b=1):
   """
   while True:
     y = random.uniform(0, 1)
-    return func(y)
+    return func.g(y)
 
-def random_walk_with_waiting_time(simulation_time, prob_right, waiting_time_from_g):
+def random_walk_with_waiting_time(simulation_time, prob_right, waiting_time_dist):
   """
   Simulates a 1-dimensional random walk with fixed step size of 1 and 
   a custom waiting time distribution.
@@ -50,13 +51,14 @@ def random_walk_with_waiting_time(simulation_time, prob_right, waiting_time_from
     position += step
     positions.append(position)
 
-    waiting_time = waiting_time_from_g() 
+    waiting_time = waiting_time_dist() 
     current_time += waiting_time
     times.append(current_time)
 
   return positions, times
 
-# Main execution block
+
+
 if __name__ == "__main__":
   simulation_time = 1_000
   prob_right = 0.5

@@ -20,15 +20,9 @@ def multi_sim(num_sims, simulation_time, prob_right):
         final_positions.append(abs(positions[-1]))
     return final_positions
 
-def g(x):
-    """
-    This function defines the g(x) function.
-    """
-    return x**(-2)
-
 def main():
-    num_sims = 110_000
-    simulation_time = 1_000
+    num_sims = 150_000
+    simulation_time = 10_000
     prob_right = 0.5
 
     # Run the simulations
@@ -42,25 +36,14 @@ def main():
     for i in range(min(len(final_positions), 10)):  # Print only the first 10 positions
         print(f"Final position {i+1}: {final_positions[i]}")
 
-    # Create a range of x-values for g(x)
-    x_values = np.linspace(0.1, 1, 100)  # Adjust range as needed
-    g_values = g(x_values)
-
-    # Create the histogram
-    plt.figure(figsize=(10, 6))
+    # Create a histogram with logarithmic y-axis
     plt.hist(final_positions, bins=50, density=True, alpha=0.7, label='Final Positions')
     plt.xlabel("Distance from Origin")
-    plt.ylabel("Probability Density (Log Scale)")
-
-    # Plot the g(x) function
-    plt.plot(g_values, np.linspace(0, max(plt.ylim()), len(g_values)), color='red', label='g(x) = x^-2') 
-    plt.yscale('log')  # Set logarithmic scale for both axes
+    plt.ylabel("Probability Density (Log Scale)")  # Update label for log scale
+    plt.yscale('log')  # Set logarithmic scale for y-axis
     plt.xscale('log')
-
-    plt.title(f"Histogram and g(x) (Log-Log) after {simulation_time} time steps")
+    plt.title(f"Histogram of Final Positions after {simulation_time} time steps")
     plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
     plt.show()
 
 
