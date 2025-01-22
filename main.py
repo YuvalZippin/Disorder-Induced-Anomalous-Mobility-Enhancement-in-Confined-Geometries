@@ -9,6 +9,8 @@ def main():
         print("2. View Histogram of Final Positions")
         print("3. View log scale of Final Positions")
         print("4. comp wait time func to transform")
+        print("5. To calc the second moment")
+
         print("9. Exit")
 
         choice = input("Enter your choice (1-4) or 9 to EXIT: ")
@@ -32,6 +34,18 @@ def main():
 
         elif choice == '4':
             WTD.comp_timeFunc_toTransform()
+
+        elif choice == '5':
+            #sim_time = int(input("Enter simulation time: "))
+            #prob_right = float(input("Enter probability of moving right: "))
+            positions,times = WTD.RW_sim(sim_time=500, prob_right=0.5)
+
+            print(f"the positions are: {positions}")
+
+            # Calculate the second moment of the positions
+            second_moment = WTD.calculate_second_moment(positions)
+            print(f"Second moment of positions: {second_moment}")
+            
 
         elif choice == '9':
             print("Exiting...")

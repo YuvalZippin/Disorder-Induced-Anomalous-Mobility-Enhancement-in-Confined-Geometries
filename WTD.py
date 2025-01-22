@@ -150,19 +150,7 @@ def comp_timeFunc_toTransform() -> None:
     plt.show()
 
 
-def calculate_second_moment_pos (positions:list) -> float:
-  
-  # Extract only the positions from the list of tuples
-  positions = [position for position, _ in positions]
-
-  # Calculate the mean
-  # mean = sum(positions) / len(positions)
-  mean = 0
-
-  # Calculate the squared differences from the mean
-  squared_diffs = [(position - mean)**2 for position in positions]
-
-  # Calculate the variance (second moment)
-  variance = sum(squared_diffs) / len(positions)
-
-  return variance
+def calculate_second_moment(positions: list) -> float:
+    # Calculate the second moment of the positions
+    second_moment = sum([pos**2 for pos in positions]) / len(positions)
+    return second_moment
