@@ -2,10 +2,8 @@ import random
 import matplotlib.pyplot as plt
 import numpy as np
 
-#TODO: show that the waitime gen is working correctly 
 #? Wide Time Distribution => WTD
 
-#! functions we use in the sim.
 def wait_time_func(t):
     # explain:
     return 0.5*t**(-3/2)
@@ -22,7 +20,6 @@ def gen_wait_time(a = 0, b = 1):
 
 
 
-#! sims. 
 def RW_sim(sim_time:int, prob_right:float) -> list:
 
     current_position = 0 
@@ -54,7 +51,6 @@ def multi_RW_sim(num_sims:int, sim_time:int, prob_right:float) -> list:
 
 
 
-#! graphs.
 def view_single_RW(sim_time:int , prob_right:float) -> None:
     
     positions , times = RW_sim(sim_time, prob_right)
@@ -75,7 +71,7 @@ def view_hist(num_sims:int, sim_time:int, prob_right:float) -> None:
 
     wait_val = np.linspace(1,50)
     funcWait_val = wait_time_func(wait_val)
-    plt.plot(wait_val, funcWait_val, color='green', label='T(t) = 1/2t^(-3/2)')
+    #* plt.plot(wait_val, funcWait_val, color='green', label='T(t) = 1/2t^(-3/2)')
 
     theory_val = np.linspace(-50, 50)
     funcTheory_val = theory_func(theory_val)
@@ -90,55 +86,83 @@ def view_hist(num_sims:int, sim_time:int, prob_right:float) -> None:
     plt.show()
 
 
-def view_logScale(num_sims:int, sim_time:int, prob_right:float) -> None:
+def view_logScale(num_sims:int, sim_time:int, prob_right:float, log_scale:bool = True) -> None:
 
-    wait_val = np.linspace(1,50)
-    funcWait_val = wait_time_func(wait_val)
-    plt.plot(wait_val, funcWait_val, color='green', label='T(t) = 1/2t^(-3/2)')
+    #wait_val = np.linspace(1, 50)
+    #funcWait_val = wait_time_func(wait_val)
+    #* plt.plot(wait_val, funcWait_val, color='green', label='T(t) = 1/2t^(-3/2)')
 
-    theory_val = np.linspace(-50, 50)
-    func_val = theory_func(theory_val)
-    #* plt.plot(theory_val, func_val, color='red', label='h(x) = - |x|')
+    #theory_val = np.linspace(-50, 50)
+    #funcTheory_val = theory_func(theory_val)
+    #* plt.plot(theory_val, funcTheory_val, color='red', label='f(x) = e^(-|x|)')
 
+    # Run the simulation and filter positive positions
     final_positions = multi_RW_sim(num_sims, sim_time, prob_right)
-    #only_pos = filter_positive_numbers(final_positions)
+    #! final_positions = [pos for pos in final_positions if pos > 0]  # Keep only positive positions
 
-    plt.hist(final_positions, bins=50, density=True, alpha=0.7, label='Final Positions')
+    plt.hist(final_positions, bins=100, density=True, alpha=0.7, label='Final Positions (Positive)')
     plt.xlabel("Distance from Origin")
-    plt.ylabel("Probability Density (Log Scale)")  
-    plt.yscale('log')
-    #plt.xscale('log')  
+    plt.ylabel("Probability Density")
     plt.title(f"Histogram of Final Positions after {sim_time} time steps")
+
+    if log_scale:
+        plt.xscale('log')  # Set the x-axis to a logarithmic scale
+        plt.yscale('log')  # Set the y-axis to a logarithmic scale
+        plt.xlabel("Log Distance from Origin (Natural Log)")
+        plt.ylabel("Log Probability Density (Natural Log)")
+
     plt.legend()
     plt.show()
 
 
-
-def filter_positive_numbers(numbers:list)->list:
-  return [num for num in numbers if num > 0]
-
 def comp_timeFunc_toTransform() -> None:
 
-    x_values = np.linspace(0, 1,1000) 
-    func_g_val = wait_time_func(x_values)
-    gen_val = np.array([gen_wait_time() for _ in range(100_000)])
-    t_values = np.linspace(1, 1000)
-    #! trans_val = func_transform(gen_val)
-    time_val = wait_time_func(t_values)
+    # Generate random numbers between 0 and 1
+    n_samples = 100000000  # Number of random samples
+    random_numbers = np.random.uniform(0, 1, n_samples)
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
-    ax1.plot(x_values,func_g_val, color = 'green', label = 'g(x) = x**-2 ')
-    ax1.hist(gen_val, bins=50, density=True, alpha=0.7, label='gen_val')
-    ax1.set_xlabel("x")
-    ax1.set_ylabel("g(x) = (x)^-2", color='blue')
-    ax1.tick_params('y', labelcolor='blue')
-    ax1.grid(True)
+    # Apply the transformation g(x) to the random numbers
+    transformed_values = func_transform(random_numbers)
 
-    ax2.plot(t_values, time_val, color='red', label='T(t) = 1/2t^(-3/2)')
-    ax2.set_xlabel("t")
-    ax2.set_ylabel("T(t)", color='red')
-    ax2.grid(True)
-    ax2.legend()
-    plt.suptitle("Separate Plots of g(x) and T(t)")
-    plt.tight_layout()
+    # Generate histogram of transformed values
+    bins = np.linspace(1, 100, 100)  # Define histogram bins
+    hist, bin_edges = np.histogram(transformed_values, bins=bins, density=True)
+    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+
+    # Plot the histogram and compare it with T(t)
+    plt.figure(figsize=(10, 6))
+
+    # Plot histogram
+    plt.bar(bin_centers, hist, width=np.diff(bin_edges), alpha=0.6, color='blue', label='Histogram (g(x))')
+
+    # Plot the original function T(t)
+    t_values = np.linspace(1, 100, 500)
+    plt.plot(t_values, wait_time_func(t_values), color='red', label='T(t) = 1/2 t^(-3/2)', linewidth=2)
+
+    # Add labels and legend
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.xlabel('t')
+    plt.ylabel('Density')
+    plt.title('Comparison of Histogram and T(t)')
+    plt.legend()
+    plt.grid(True)
     plt.show()
+
+
+def calculate_second_moment_pos (positions:list) -> float:
+  
+  # Extract only the positions from the list of tuples
+  positions = [position for position, _ in positions]
+
+  # Calculate the mean
+  # mean = sum(positions) / len(positions)
+  mean = 0
+
+  # Calculate the squared differences from the mean
+  squared_diffs = [(position - mean)**2 for position in positions]
+
+  # Calculate the variance (second moment)
+  variance = sum(squared_diffs) / len(positions)
+
+  return variance
