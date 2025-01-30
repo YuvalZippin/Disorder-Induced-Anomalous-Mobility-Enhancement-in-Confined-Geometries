@@ -36,25 +36,16 @@ prob_right = 0.5  # probability of moving right
 # Run the random walk simulation and get the second moments
 times, positions, second_moments = RW_sim(sim_time, prob_right)
 
-# Plot the second moment as a function of time and the random walk positions
-fig, ax1 = plt.subplots(figsize=(10, 6))
+   
+for i in range(len(second_moments) - 1):
+        plt.plot([times[i], times[i]], [second_moments[i], second_moments[i+1]], 'b-', linewidth=2)
+        plt.plot([times[i], times[i+1]], [second_moments[i+1], second_moments[i+1]], 'b--', linewidth=2)
 
-# Plot random walk positions
-ax1.plot(times, positions, color='blue', label='Random Walk Positions')
-ax1.set_xlabel('Time (t)')
-ax1.set_ylabel('Position', color='blue')
-ax1.tick_params(axis='y', labelcolor='blue')
-
-# Create a second y-axis to plot the second moment
-ax2 = ax1.twinx()
-ax2.plot(times, second_moments, color='red', label='Second Moment of Positions', linestyle='--')
-ax2.set_ylabel('Second Moment', color='red')
-ax2.tick_params(axis='y', labelcolor='red')
-
-# Title and legend
-plt.title('Random Walk and Second Moment as a Function of Time')
-fig.tight_layout()  # Adjust the layout to avoid overlap
+plt.xlabel("Time")
+plt.ylabel("second momment")
+plt.title("Random Walk with wide time distribution")
 plt.grid(True)
-
-# Show the plot
 plt.show()
+
+print(second_moments)
+print(positions)
