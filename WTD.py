@@ -12,13 +12,8 @@ def func_transform(x):
     #explain: 
     return (x)**(-2)
 
-def theory_func(x):
-    return (np.exp(-np.abs(x)))
-
 def gen_wait_time(a = 0, b = 1):
     return func_transform(random.uniform(a , b))
-
-
 
 def RW_sim(sim_time:int, prob_right:float) -> list:
 
@@ -49,6 +44,40 @@ def multi_RW_sim(num_sims:int, sim_time:int, prob_right:float) -> list:
         final_positions.append(positions[-1])
     return final_positions
 
+
+def comp_timeFunc_toTransform() -> None:
+
+    # Generate random numbers between 0 and 1
+    n_samples = 100000000  # Number of random samples
+    random_numbers = np.random.uniform(0, 1, n_samples)
+
+    # Apply the transformation g(x) to the random numbers
+    transformed_values = func_transform(random_numbers)
+
+    # Generate histogram of transformed values
+    bins = np.linspace(1, 100, 100)  # Define histogram bins
+    hist, bin_edges = np.histogram(transformed_values, bins=bins, density=True)
+    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+
+    # Plot the histogram and compare it with T(t)
+    plt.figure(figsize=(10, 6))
+
+    # Plot histogram
+    plt.bar(bin_centers, hist, width=np.diff(bin_edges), alpha=0.6, color='blue', label='Histogram (g(x))')
+
+    # Plot the original function T(t)
+    t_values = np.linspace(1, 100, 500)
+    plt.plot(t_values, wait_time_func(t_values), color='red', label='T(t) = 1/2 t^(-3/2)', linewidth=2)
+
+    # Add labels and legend
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.xlabel('t')
+    plt.ylabel('Density')
+    plt.title('Comparison of Histogram and T(t)')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
 
 
 def view_single_RW(sim_time:int , prob_right:float) -> None:
@@ -112,41 +141,6 @@ def view_logScale(num_sims:int, sim_time:int, prob_right:float, log_scale:bool =
         plt.ylabel("Log Probability Density (Natural Log)")
 
     plt.legend()
-    plt.show()
-
-
-def comp_timeFunc_toTransform() -> None:
-
-    # Generate random numbers between 0 and 1
-    n_samples = 100000000  # Number of random samples
-    random_numbers = np.random.uniform(0, 1, n_samples)
-
-    # Apply the transformation g(x) to the random numbers
-    transformed_values = func_transform(random_numbers)
-
-    # Generate histogram of transformed values
-    bins = np.linspace(1, 100, 100)  # Define histogram bins
-    hist, bin_edges = np.histogram(transformed_values, bins=bins, density=True)
-    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
-
-    # Plot the histogram and compare it with T(t)
-    plt.figure(figsize=(10, 6))
-
-    # Plot histogram
-    plt.bar(bin_centers, hist, width=np.diff(bin_edges), alpha=0.6, color='blue', label='Histogram (g(x))')
-
-    # Plot the original function T(t)
-    t_values = np.linspace(1, 100, 500)
-    plt.plot(t_values, wait_time_func(t_values), color='red', label='T(t) = 1/2 t^(-3/2)', linewidth=2)
-
-    # Add labels and legend
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.xlabel('t')
-    plt.ylabel('Density')
-    plt.title('Comparison of Histogram and T(t)')
-    plt.legend()
-    plt.grid(True)
     plt.show()
 
 

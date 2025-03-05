@@ -39,9 +39,7 @@ def main():
             #sim_time = int(input("Enter simulation time: "))
             #prob_right = float(input("Enter probability of moving right: "))
             positions,times = WTD.RW_sim(sim_time=500, prob_right=0.5)
-
             print(f"the positions are: {positions}")
-
             # Calculate the second moment of the positions
             second_moment = WTD.calculate_second_moment(positions)
             print(f"Second moment of positions: {second_moment}")
