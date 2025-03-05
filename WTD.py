@@ -15,6 +15,8 @@ def func_transform(x):
 def gen_wait_time(a = 0, b = 1):
     return func_transform(random.uniform(a , b))
 
+
+
 def RW_sim(sim_time:int, prob_right:float) -> list:
 
     current_position = 0 
@@ -98,13 +100,6 @@ def view_single_RW(sim_time:int , prob_right:float) -> None:
 
 def view_hist(num_sims:int, sim_time:int, prob_right:float) -> None:
 
-    wait_val = np.linspace(1,50)
-    funcWait_val = wait_time_func(wait_val)
-    #* plt.plot(wait_val, funcWait_val, color='green', label='T(t) = 1/2t^(-3/2)')
-
-    theory_val = np.linspace(-50, 50)
-    funcTheory_val = theory_func(theory_val)
-    #* plt.plot(theory_val, funcTheory_val, color='red', label='f(x) = e^(-|x|)')
 
     final_positions = multi_RW_sim(num_sims, sim_time, prob_right)
     plt.hist(final_positions, bins=100, density=True, alpha=0.7, label='Final Positions')
@@ -148,3 +143,68 @@ def calculate_second_moment(positions: list) -> float:
     # Calculate the second moment of the positions
     second_moment = sum([pos**2 for pos in positions]) / len(positions)
     return second_moment
+
+
+def multi_RW_second_moment(num_sims: int, sim_time: int, prob_right: float) -> list:
+    final_second_moment = []
+    for _ in range(num_sims):
+        positions, _ = RW_sim(sim_time, prob_right)
+        single_sec_moment = calculate_second_moment(positions)
+        final_second_moment.append(single_sec_moment)
+    return final_second_moment
+
+
+def second_moment_with_noise(num_sims: int, sim_time_start: int, prob_right: float, sim_time_finish: int, time_step: int):
+    time_values = np.arange(sim_time_start, sim_time_finish + 1, time_step)
+    all_times = []
+    all_second_moments = []
+
+    for sim_time in time_values:
+        second_moments = multi_RW_second_moment(num_sims, sim_time, prob_right)
+        all_times.extend([sim_time] * len(second_moments))  # Repeat time for each value
+        all_second_moments.extend(second_moments)  # Store all second moment values
+
+    # Plot the results
+    plt.figure(figsize=(8, 6))
+    plt.scatter(all_times, all_second_moments, alpha=0.5, s=10, label="Second Moments")
+    plt.xlabel("Simulation Time")
+    plt.ylabel("Second Moment ⟨x²⟩")
+    plt.title("Second Moment vs. Time for Random Walk (with Noise)")
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+
+def second_moment_without_noise_comp(num_sims: int, sim_time_start: int, prob_right: float, sim_time_finish: int, time_step: int, a=0.5):
+    time_values = np.arange(sim_time_start, sim_time_finish + 1, time_step)
+    mean_second_moments = []  
+
+    for sim_time in time_values:
+        second_moments = multi_RW_second_moment(num_sims, sim_time, prob_right)
+        mean_second_moments.append(np.mean(second_moments))
+
+    # Compute the function f(t) = t^a and ensure it's a float array
+    f_t = time_values.astype(float)**a  # Convert time_values to float
+
+    # Normalize f(t) to match the scale of mean second moments
+    #! f_t *= (mean_second_moments[-1] / f_t[-1])
+
+    # Plot the results
+    plt.figure(figsize=(8, 6))
+    plt.plot(time_values, mean_second_moments, marker='o', linestyle='-', label="Mean Second Moment")
+    plt.plot(time_values, f_t, linestyle='--', color='red', label=f"$t^{a}$ Fit")
+
+    plt.xlabel("Simulation Time")
+    plt.ylabel("Mean Second Moment ⟨x²⟩")
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.title("Mean Second Moment vs. Time for Random Walk")
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+
+
+
+
+...
