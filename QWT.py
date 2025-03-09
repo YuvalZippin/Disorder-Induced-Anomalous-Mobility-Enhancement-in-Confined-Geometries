@@ -6,7 +6,7 @@ def func_transform(x):
     #explain: 
     return (x)**(-2)
 
-def gen_wait_time(a = 0, b = 1):
+def gen_wait_time(a = 0, b = 1) -> int:
     return func_transform(random.uniform(a , b))
 
 def generate_waiting_times(size: int) -> list:
@@ -54,7 +54,7 @@ def RW_sim_fixed_wait(sim_time: int, prob_right: float, wait_list_size: int) -> 
     return positions, times
 
 
-def plot_random_walk(positions, times):
+def plot_random_walk(positions, times) -> None:
     """Plot the trajectory of the random walker."""
     plt.figure(figsize=(10, 6))
 
