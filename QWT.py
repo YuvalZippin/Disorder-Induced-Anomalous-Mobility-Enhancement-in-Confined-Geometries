@@ -2,13 +2,16 @@ import numpy as np
 import random
 import matplotlib.pyplot as plt
 
+MIN_WAIT = 0
+MAX_WAIT = 1_000
+
 def generate_waiting_times(size: int , min_wait:int , max_wait:int) -> list:
     """Generate a shuffled list of waiting times."""
     waiting_times = np.random.uniform(min_wait, max_wait, size)  # Example: Uniformly distributed waiting times
     np.random.shuffle(waiting_times)
     return waiting_times
 
-def RW_sim_fixed_wait(sim_time: int, prob_right: float, wait_list_size: int = 1_000) -> tuple:
+def RW_sim_fixed_wait(sim_time: int, prob_right: float, wait_list_size: int) -> tuple:
     """
     Simulate a random walk with fixed waiting times.
     
@@ -22,7 +25,7 @@ def RW_sim_fixed_wait(sim_time: int, prob_right: float, wait_list_size: int = 1_
     - times: List of corresponding times.
     """
     
-    waiting_times = generate_waiting_times(wait_list_size, 0 , sim_time/2)
+    waiting_times = generate_waiting_times(wait_list_size, MIN_WAIT , MAX_WAIT)
     
     current_index = wait_list_size // 2  # Start in the middle of the waiting time list
     current_time = 0
@@ -59,7 +62,7 @@ def plot_random_walk(positions, times):
     plt.grid(True)
     plt.show()
 
-def multi_RW_sim_fixed_wait(num_sims: int, sim_time: int, prob_right: float, wait_list_size: int = 1000) -> list:
+def multi_RW_sim_fixed_wait(num_sims: int, sim_time: int, prob_right: float, wait_list_size: int) -> list:
     """
     Run multiple simulations of the random walker with fixed waiting times.
 
@@ -107,5 +110,31 @@ def view_hist_fixed_wait(num_sims: int, sim_time: int, prob_right: float, wait_l
 
     plt.show()
 
-# Example usage:
-view_hist_fixed_wait(num_sims=200_000, sim_time=10_000, prob_right=0.5, wait_list_size=1000)
+
+
+#? Example usage:
+def main():
+    while True:
+        print("\nMenu:")
+        print("1. View Single Random Walk")
+        print("2. View Histogram of Final Positions")
+        print("3. Exit")
+
+        choice = input("Enter your choice (1-3): ")
+
+        if choice == '1':
+            positions, times = RW_sim_fixed_wait(sim_time = 15_000, prob_right = 0.5 , wait_list_size = 10_000)
+            plot_random_walk(positions, times)
+
+        elif choice == '2':
+            view_hist_fixed_wait(num_sims = 200_000, sim_time = 15_000, prob_right = 0.5, wait_list_size = 10_000)
+
+        elif choice == '3':
+            print("Exiting...")
+            break
+
+        else:
+            print("Invalid choice. Please enter a number between 1 and 3.")
+
+if __name__ == "__main__":
+    main()
