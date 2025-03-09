@@ -253,12 +253,6 @@ def main():
             
 
 
-
-
-
-
-
-
         elif choice == '9':
             print("Exiting...")
             break
