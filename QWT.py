@@ -1,6 +1,7 @@
 import numpy as np
 import random
 import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
 
 def func_transform(x):
     #explain: 
@@ -212,7 +213,55 @@ def second_moment_without_noise_comp_fixed_wait(num_sims: int, sim_time_start: i
     plt.grid()
     plt.show()
 
+def power_law(x, A, b):
+    """Power-law function A * x^b"""
+    return A * x**b
 
+def second_moment_without_noise_comp_and_find_func(num_sims: int, sim_time_start: int, prob_right: float, sim_time_finish: int, time_step: int, wait_list_size: int, a=0.5):
+    """
+    Compare mean second moment to a power-law function and fit a function of the form f(x) = Ax^b.
+
+    Parameters:
+    - num_sims: Number of simulations.
+    - sim_time_start: Starting simulation time.
+    - sim_time_finish: Ending simulation time.
+    - time_step: Interval between measurements.
+    - prob_right: Probability of jumping right.
+    - wait_list_size: Size of the waiting time list.
+    - a: Exponent for theoretical function f(t) = t^a.
+    """
+    time_values = np.arange(sim_time_start, sim_time_finish + 1, time_step)
+    mean_second_moments = []  
+
+    for sim_time in time_values:
+        second_moments = multi_RW_second_moment_fixed_wait(num_sims, sim_time, prob_right, wait_list_size)
+        mean_second_moments.append(np.mean(second_moments))
+
+    # Compute theoretical function f(t) = t^a (for reference)
+    # f_t = time_values.astype(float) ** a  
+
+    # Perform power-law fit (Ax^b)
+    popt, _ = curve_fit(power_law, time_values, mean_second_moments)
+    A_fit, b_fit = popt  # Extract fitted A and b
+    print(f"Estimated A: {A_fit:.4f}, Estimated b: {b_fit:.4f}")
+
+    # Compute the fitted values
+    fitted_values = power_law(time_values, A_fit, b_fit)
+
+    # Plot results
+    plt.figure(figsize=(8, 6))
+    plt.plot(time_values, mean_second_moments, marker='o', linestyle='-', label="Mean Second Moment")
+    # plt.plot(time_values, f_t, linestyle='--', color='red', label=f"$t^{a}$ Fit")
+    plt.plot(time_values, fitted_values, linestyle='-', color='green', label=f"Fitted $Ax^b$ (b={b_fit:.2f})")
+
+    plt.xlabel("Simulation Time")
+    plt.ylabel("Mean Second Moment ⟨x²⟩")
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.title("Mean Second Moment vs. Time for Random Walk with Fixed Waiting Times")
+    plt.legend()
+    plt.grid()
+    plt.show()
 
 
 
@@ -225,7 +274,7 @@ def main():
         print("2. View Histogram of Final Positions")
         print("3. View Second Moment with Noise")
         print("4. View Mean Second Moment with Power-Law Fit")
-        print("5. Exit")
+        print("9. Exit")
 
         choice = input("Enter your choice (1-5): ")
 
@@ -247,17 +296,21 @@ def main():
             second_moment_with_noise_fixed_wait(num_sims, sim_time_start, prob_right, sim_time_finish, time_step, wait_list_size)
 
         elif choice == '4':
-            num_sims = 100_000  # Number of simulations
+            num_sims = 1_000  # Number of simulations
             sim_time_start = 0
             sim_time_finish = 1_000
-            time_step = 25
+            time_step = 100
             wait_list_size = 250
             prob_right = 0.5
-            a = 0.5  # Exponent for theoretical function
+            a = 0.66  # Exponent for theoretical function
 
             second_moment_without_noise_comp_fixed_wait(num_sims, sim_time_start, prob_right, sim_time_finish, time_step, wait_list_size, a)
 
         elif choice == '5':
+            second_moment_without_noise_comp_and_find_func(num_sims=5_000, sim_time_start=0, sim_time_finish=1_000, time_step= 100, prob_right=0.5, wait_list_size=50, a=0.5)
+
+
+        elif choice == '9':
             print("Exiting...")
             break
 
