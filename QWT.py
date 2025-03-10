@@ -230,11 +230,11 @@ def main():
         choice = input("Enter your choice (1-5): ")
 
         if choice == '1':
-            positions, times = RW_sim_fixed_wait(sim_time=1_000, prob_right=0.5, wait_list_size=1_000)
+            positions, times = RW_sim_fixed_wait(sim_time= 500, prob_right=0.5, wait_list_size= 250)
             plot_random_walk(positions, times)
 
         elif choice == '2':
-            view_hist_fixed_wait(num_sims=200_000, sim_time=15_000, prob_right=0.5, wait_list_size=1_000)
+            view_hist_fixed_wait(num_sims= 500_000, sim_time= 10_000, prob_right=0.5, wait_list_size= 500)
 
         elif choice == '3':
             num_sims = 500  # Number of simulations
@@ -247,11 +247,11 @@ def main():
             second_moment_with_noise_fixed_wait(num_sims, sim_time_start, prob_right, sim_time_finish, time_step, wait_list_size)
 
         elif choice == '4':
-            num_sims = 5_000  # Number of simulations
+            num_sims = 100_000  # Number of simulations
             sim_time_start = 0
             sim_time_finish = 1_000
-            time_step = 100
-            wait_list_size = 1_000
+            time_step = 25
+            wait_list_size = 250
             prob_right = 0.5
             a = 0.5  # Exponent for theoretical function
 
