@@ -251,7 +251,7 @@ def main():
             first_moment_with_noise_fixed_wait(num_sims = 5_000, sim_time_start = 0, sim_time_finish = 1_000, time_step=100, wait_list_size = 250, Y_min = -100, Y_max = 100)
 
         elif choice == '4':
-            first_moment_without_noise_comp_and_find_func(10_000, 0, 1_000, 50, 250, -100, 100)
+            first_moment_without_noise_comp_and_find_func(50_000, 1_000, 10_000, 1_000, 250, -100, 100)
 
         elif choice == '9':
             break
