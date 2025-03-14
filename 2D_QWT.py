@@ -21,16 +21,22 @@ def generate_waiting_times(size: int) -> list:
     return waiting_times
 
 def sample_jump():
-    """Returns a jump (dx, dy) with given probabilities."""
+    """
+    Returns a jump (dx, dy) chosen from:
+      - RIGHT: (1, 0) with probability 3/8,
+      - LEFT:  (-1, 0) with probability 1/8,
+      - UP:    (0, 1) with probability 1/4,
+      - DOWN:  (0, -1) with probability 1/4.
+    """
     r = random.random()
     if r < 3/8:
-        return (1, 0)
-    elif r < 1/2:
-        return (-1, 0)
-    elif r < 3/4:
-        return (0, 1)
+        return (1, 0)       # RIGHT
+    elif r < 3/8 + 1/8:
+        return (-1, 0)      # LEFT
+    elif r < 3/8 + 1/8 + 1/4:
+        return (0, 1)       # UP
     else:
-        return (0, -1)
+        return (0, -1)      # DOWN
 
 def RW_sim_2d_fixed_wait(sim_time: int, wait_list_size: int, Y_min: int, Y_max: int) -> tuple:
     """Simulate a 2D random walk with quenched waiting times and periodic boundaries in y."""
@@ -100,12 +106,12 @@ def view_hist_2d_fixed_wait(num_sims, sim_time, wait_list_size, Y_min, Y_max):
 def power_law(x, A, b):
     return A * x**b
 
-def calculate_first_moment(positions):
+def calculate_first_moment(positions) -> tuple:
     """Calculate the first moment (mean X, mean Y)."""
     x_coords, y_coords = zip(*positions)
     return np.mean(x_coords), np.mean(y_coords)
 
-def multi_RW_first_moment_fixed_wait(num_sims: int, sim_time: int, wait_list_size: int, Y_min: int, Y_max: int):
+def multi_RW_first_moment_fixed_wait(num_sims: int, sim_time: int, wait_list_size: int, Y_min: int, Y_max: int) -> tuple[list,list]:
     """
     Run multiple simulations and compute first moments ⟨J_x⟩ and ⟨J_y⟩.
 
@@ -123,7 +129,7 @@ def multi_RW_first_moment_fixed_wait(num_sims: int, sim_time: int, wait_list_siz
 
     return first_moments_x, first_moments_y
 
-def first_moment_with_noise_fixed_wait(num_sims, sim_time_start, sim_time_finish, time_step, wait_list_size, Y_min, Y_max):
+def first_moment_with_noise_fixed_wait(num_sims: int, sim_time_start:int, sim_time_finish:int, time_step: int, wait_list_size:int, Y_min:int, Y_max:int) -> None:
     """
     Plot first moment vs. time while visualizing noise separately for ⟨J_x⟩ and ⟨J_y⟩.
     """
@@ -160,7 +166,7 @@ def first_moment_with_noise_fixed_wait(num_sims, sim_time_start, sim_time_finish
     plt.tight_layout()
     plt.show()
 
-def first_moment_without_noise_comp_fixed_wait(num_sims, sim_time_start, sim_time_finish, time_step, wait_list_size, Y_min, Y_max):
+def first_moment_without_noise_comp_fixed_wait(num_sims:int, sim_time_start:int, sim_time_finish:int, time_step:int, wait_list_size:int, Y_min:int, Y_max:int) -> None:
     """
     Compare mean first moment ⟨J_x⟩ and ⟨J_y⟩ to a power-law function.
     """
@@ -197,7 +203,7 @@ def first_moment_without_noise_comp_fixed_wait(num_sims, sim_time_start, sim_tim
     plt.tight_layout()
     plt.show()
 
-def first_moment_without_noise_comp_and_find_func(num_sims, sim_time_start, sim_time_finish, time_step, wait_list_size, Y_min, Y_max):
+def first_moment_without_noise_comp_and_find_func(num_sims:int, sim_time_start:int, sim_time_finish:int, time_step:int, wait_list_size:int, Y_min:int, Y_max:int) ->None:
     """Fit mean first moment to a power-law function ⟨J⟩ = Ax^b."""
     time_values = np.arange(sim_time_start, sim_time_finish + 1, time_step)
     mean_first_moments_x = []
@@ -248,10 +254,10 @@ def main():
             view_hist_2d_fixed_wait(500_000, 10_000, 250, -100, 100)
 
         elif choice == '3':
-            first_moment_with_noise_fixed_wait(num_sims = 5_000, sim_time_start = 0, sim_time_finish = 1_000, time_step=100, wait_list_size = 250, Y_min = -100, Y_max = 100)
+            first_moment_with_noise_fixed_wait(num_sims = 5_000, sim_time_start = 0, sim_time_finish = 1_000, time_step= 50, wait_list_size = 250, Y_min = -100, Y_max = 100)
 
         elif choice == '4':
-            first_moment_without_noise_comp_and_find_func(50_000, 1_000, 10_000, 1_000, 250, -100, 100)
+            first_moment_without_noise_comp_and_find_func(num_sims=50_000, sim_time_start=0, sim_time_finish=10_000, time_step=2_500, wait_list_size=150, Y_min=-100, Y_max=100)
 
         elif choice == '9':
             break
