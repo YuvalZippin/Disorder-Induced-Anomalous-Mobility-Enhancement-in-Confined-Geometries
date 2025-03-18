@@ -6,6 +6,7 @@ from scipy.optimize import curve_fit
 import time
 import multiprocessing as mp
 
+
 def func_transform(x):
     """Transform a uniform variable into a power-law waiting time."""
     return x**(-2)
@@ -239,6 +240,7 @@ def first_moment_without_noise_comp_and_find_func(num_sims:int, sim_time_start:i
 
 
 
+
 def coefficient_vs_width(num_tests: int, W_initial: int, W_final: int, W_step: int, num_sims: int, sim_time_start: int, sim_time_finish: int, time_step: int, wait_list_size: int):
     """
     Test the relationship between the coefficient A of the power-law function and the system width W.
@@ -426,14 +428,14 @@ def main():
 
         elif choice == '5': 
             coefficient_vs_width_new(
-                num_tests=50,        
+                num_tests=1_000,        
                 W_initial=0,        
-                W_final=1_000,         
-                W_step=200,           
-                num_sims=5_000,       
+                W_final=300,         
+                W_step=50,           
+                num_sims=25_000,       
                 sim_time_start=0,
                 sim_time_finish=1_000,
-                time_step=250,
+                time_step=100,
                 wait_list_size=100
             )
 
