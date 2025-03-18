@@ -227,6 +227,56 @@ def first_moment_without_noise_comp_and_find_func(num_sims:int, sim_time_start:i
     plt.grid()
     plt.show()
 
+def coefficient_vs_width(num_tests: int, W_initial: int, W_final: int, W_step: int, num_sims: int, sim_time_start: int, sim_time_finish: int, time_step: int, wait_list_size: int):
+    """
+    Test the relationship between the coefficient A of the power-law function and the system width W.
+
+    Parameters:
+    - num_tests: Number of times to repeat the A calculation for each W
+    - W_initial: Starting value of W
+    - W_final: Final value of W
+    - W_step: Step size for W
+    - num_sims: Number of simulations per test
+    - sim_time_start: Initial simulation time
+    - sim_time_finish: Final simulation time
+    - time_step: Time step for simulations
+    - wait_list_size: Size of the waiting time list
+    """
+    W_values = np.arange(W_initial, W_final + 1, W_step)
+    mean_A_values = []
+
+    for W in W_values:
+        Y_min = -W // 2
+        Y_max = W // 2
+        A_values = []
+
+        for _ in range(num_tests):
+            time_values = np.arange(sim_time_start, sim_time_finish + 1, time_step)
+            mean_first_moments_x = []
+
+            for sim_time in time_values:
+                first_moments = [
+                    calculate_first_moment(RW_sim_2d_fixed_wait(sim_time, wait_list_size, Y_min, Y_max)[0])
+                    for _ in range(num_sims)
+                ]
+                mean_first_moments_x.append(np.mean([fm[0] for fm in first_moments]))
+
+            popt, _ = curve_fit(power_law, time_values, mean_first_moments_x)
+            A_values.append(popt[0])  # Extract coefficient A
+
+        mean_A_values.append(np.mean(A_values))  # Average A over num_tests
+
+    # Plot results
+    plt.figure(figsize=(8, 6))
+    plt.plot(W_values, mean_A_values, marker='o', linestyle='-', label="Mean A vs. W")
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.xlabel("Width W")
+    plt.ylabel("Mean Coefficient A")
+    plt.title("Coefficient A vs. System Width W")
+    plt.legend()
+    plt.grid()
+    plt.show()
 
 
 
@@ -240,6 +290,7 @@ def main():
         print("2. View Histogram of Final Positions")
         print("3. View First Moment with Noise")
         print("4. View First Moment with Power-Law Fit and Find Function")
+        print("5. Test Relationship Between Coefficient A and Width W")  # New option
         print("9. Exit")
 
         choice = input("Enter your choice: ")
@@ -251,10 +302,23 @@ def main():
             view_hist_2d_fixed_wait(500_000, 10_000, 250, -100, 100)
 
         elif choice == '3':
-            first_moment_with_noise_fixed_wait(num_sims = 5_000, sim_time_start = 0, sim_time_finish = 1_000, time_step= 50, wait_list_size = 250, Y_min = -100, Y_max = 100)
+            first_moment_with_noise_fixed_wait(num_sims=5_000, sim_time_start=0, sim_time_finish=1_000, time_step=50, wait_list_size=250, Y_min=-100, Y_max=100)
 
         elif choice == '4':
-            first_moment_without_noise_comp_and_find_func(num_sims=50_000, sim_time_start=0, sim_time_finish=10_000, time_step=2_500, wait_list_size=150, Y_min=-5, Y_max=5)
+            first_moment_without_noise_comp_and_find_func(num_sims=1_000, sim_time_start=0, sim_time_finish=1_000, time_step=200, wait_list_size=150, Y_min=-25, Y_max=25)
+
+        elif choice == '5':  # New function call
+            coefficient_vs_width(
+                num_tests=50,        
+                W_initial=0,        
+                W_final=100,         
+                W_step=10,           
+                num_sims=25_000,       
+                sim_time_start=0,
+                sim_time_finish=1_000,
+                time_step=200,
+                wait_list_size=150
+            )
 
         elif choice == '9':
             break
