@@ -269,8 +269,8 @@ def coefficient_vs_width(num_tests: int, W_initial: int, W_final: int, W_step: i
     # Plot results
     plt.figure(figsize=(8, 6))
     plt.plot(W_values, mean_A_values, marker='o', linestyle='-', label="Mean A vs. W")
-    plt.xscale('log')
-    plt.yscale('log')
+    #plt.xscale('log')
+    #plt.yscale('log')
     plt.xlabel("Width W")
     plt.ylabel("Mean Coefficient A")
     plt.title("Coefficient A vs. System Width W")
@@ -309,15 +309,15 @@ def main():
 
         elif choice == '5':  # New function call
             coefficient_vs_width(
-                num_tests=50,        
+                num_tests=75,        
                 W_initial=0,        
-                W_final=100,         
-                W_step=10,           
-                num_sims=25_000,       
+                W_final=250,         
+                W_step=25,           
+                num_sims=5_000,       
                 sim_time_start=0,
                 sim_time_finish=1_000,
-                time_step=200,
-                wait_list_size=150
+                time_step=250,
+                wait_list_size=100
             )
 
         elif choice == '9':
