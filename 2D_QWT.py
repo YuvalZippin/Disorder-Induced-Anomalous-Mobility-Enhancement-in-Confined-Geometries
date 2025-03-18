@@ -336,26 +336,38 @@ def coefficient_vs_width_new(num_tests, W_initial, W_final, W_step, num_sims, si
             [(W, num_tests, num_sims, sim_time_start, sim_time_finish, time_step, wait_list_size) for W in W_values]
         )
 
-    # Plot regular scale
-    plt.figure(figsize=(8, 6))
-    plt.plot(W_values, mean_A_values, marker='o', linestyle='-', label="Mean A vs. W")
-    plt.xlabel("Width W")
-    plt.ylabel("Mean Coefficient A")
-    plt.title("Coefficient A vs. System Width W (Regular Scale)")
-    plt.legend()
-    plt.grid()
-    plt.show()
+    # Fit power-law to A vs. W
+    popt, _ = curve_fit(power_law, W_values, mean_A_values)
+    A_fit, b_fit = popt
+    print(f"Fitted power-law: A = {A_fit:.4f} * W^{b_fit:.4f}")
 
-    # Plot log-log scale
-    plt.figure(figsize=(8, 6))
-    plt.plot(W_values, mean_A_values, marker='o', linestyle='-', label="Mean A vs. W")
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.xlabel("Width W (log scale)")
-    plt.ylabel("Mean Coefficient A (log scale)")
-    plt.title("Coefficient A vs. System Width W (Log-Log Scale)")
-    plt.legend()
-    plt.grid()
+    # Generate fitted curve
+    fitted_values = power_law(W_values, A_fit, b_fit)
+
+    # Plot side-by-side graphs
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+    # Regular scale plot
+    axes[0].plot(W_values, mean_A_values, marker='o', linestyle='-', label="Mean A vs. W")
+    axes[0].plot(W_values, fitted_values, linestyle='--', color='red', label=f"Fit: $A W^{b_fit:.2f}$")
+    axes[0].set_xlabel("Width W")
+    axes[0].set_ylabel("Mean Coefficient A")
+    axes[0].set_title("Coefficient A vs. System Width W (Regular Scale)")
+    axes[0].legend()
+    axes[0].grid()
+
+    # Log-log scale plot
+    axes[1].plot(W_values, mean_A_values, marker='o', linestyle='-', label="Mean A vs. W")
+    axes[1].plot(W_values, fitted_values, linestyle='--', color='red', label=f"Fit: $A W^{b_fit:.2f}$")
+    axes[1].set_xscale('log')
+    axes[1].set_yscale('log')
+    axes[1].set_xlabel("Width W (log scale)")
+    axes[1].set_ylabel("Mean Coefficient A (log scale)")
+    axes[1].set_title("Coefficient A vs. System Width W (Log-Log Scale)")
+    axes[1].legend()
+    axes[1].grid()
+
+    plt.tight_layout()
     plt.show()
 
 
