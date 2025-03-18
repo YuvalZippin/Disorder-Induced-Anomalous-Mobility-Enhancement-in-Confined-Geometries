@@ -401,14 +401,14 @@ def main():
 
         elif choice == '5': 
             coefficient_vs_width_new(
-                num_tests=75,        
+                num_tests=500,        
                 W_initial=0,        
-                W_final=50,         
-                W_step=5,           
-                num_sims=5_000,       
+                W_final=30,         
+                W_step=3,           
+                num_sims=25_000,       
                 sim_time_start=0,
                 sim_time_finish=1_000,
-                time_step=250,
+                time_step=100,
                 wait_list_size=100
             )
 
