@@ -300,7 +300,7 @@ def main():
         print("2. View Histogram of Final Positions")
         print("3. View First Moment with Noise")
         print("4. View First Moment with Power-Law Fit and Find Function")
-        print("5. Test Relationship Between Coefficient A and Width W")  # New option
+        print("5. Test Relationship Between Coefficient A and Width W")  
         print("9. Exit")
 
         choice = input("Enter your choice: ")
