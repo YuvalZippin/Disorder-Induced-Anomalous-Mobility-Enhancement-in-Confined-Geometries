@@ -3,6 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.optimize import curve_fit
+import time
+import multiprocessing as mp
 
 def func_transform(x):
     """Transform a uniform variable into a power-law waiting time."""
@@ -288,6 +290,63 @@ def coefficient_vs_width(num_tests: int, W_initial: int, W_final: int, W_step: i
     plt.grid()
     plt.show()
 
+#???????????????????????????????????????
+
+def estimate_runtime(single_run_time, total_iterations):
+    """Estimate total runtime based on a single run time."""
+    estimated_time = single_run_time * total_iterations
+    print(f"Estimated total runtime: {estimated_time:.2f} seconds ({estimated_time/60:.2f} minutes)")
+
+def compute_A_for_W(W, num_tests, num_sims, sim_time_start, sim_time_finish, time_step, wait_list_size):
+    """Compute the coefficient A for a given W value, averaging over num_tests runs."""
+    Y_min = -W // 2
+    Y_max = W // 2
+    A_values = []
+
+    for _ in range(num_tests):
+        time_values = np.arange(sim_time_start, sim_time_finish + 1, time_step)
+        mean_first_moments_x = []
+
+        for sim_time in time_values:
+            first_moments = [
+                calculate_first_moment(RW_sim_2d_fixed_wait(sim_time, wait_list_size, Y_min, Y_max)[0])
+                for _ in range(num_sims)
+            ]
+            mean_first_moments_x.append(np.mean([fm[0] for fm in first_moments]))
+
+        popt, _ = curve_fit(power_law, time_values, mean_first_moments_x)
+        A_values.append(popt[0])  # Extract coefficient A
+
+    return np.mean(A_values)  # Average A over num_tests
+
+def coefficient_vs_width_new(num_tests, W_initial, W_final, W_step, num_sims, sim_time_start, sim_time_finish, time_step, wait_list_size):
+    """Test the relationship between coefficient A and system width W with performance improvements."""
+    W_values = np.arange(W_initial, W_final + 1, W_step)
+
+    # Estimate runtime using a small test run
+    start_time = time.time()
+    compute_A_for_W(W_values[0], num_tests, num_sims, sim_time_start, sim_time_finish, time_step, wait_list_size)
+    single_run_time = time.time() - start_time
+    estimate_runtime(single_run_time, len(W_values))
+
+    # Use multiprocessing to speed up computation
+    with mp.Pool(mp.cpu_count()) as pool:
+        mean_A_values = pool.starmap(
+            compute_A_for_W, 
+            [(W, num_tests, num_sims, sim_time_start, sim_time_finish, time_step, wait_list_size) for W in W_values]
+        )
+
+    # Plot results
+    plt.figure(figsize=(8, 6))
+    plt.plot(W_values, mean_A_values, marker='o', linestyle='-', label="Mean A vs. W")
+    plt.xlabel("Width W")
+    plt.ylabel("Mean Coefficient A")
+    plt.title("Coefficient A vs. System Width W")
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+#???????????????????????????????????????
 
 
 
@@ -341,11 +400,11 @@ def main():
                 Y_max=25)
 
         elif choice == '5': 
-            coefficient_vs_width(
+            coefficient_vs_width_new(
                 num_tests=75,        
                 W_initial=0,        
-                W_final=250,         
-                W_step=25,           
+                W_final=50,         
+                W_step=5,           
                 num_sims=5_000,       
                 sim_time_start=0,
                 sim_time_finish=1_000,
