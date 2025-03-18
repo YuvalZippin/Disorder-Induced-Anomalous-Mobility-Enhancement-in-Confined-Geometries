@@ -233,9 +233,6 @@ def first_moment_without_noise_comp_and_find_func(num_sims:int, sim_time_start:i
 
 
 
-
-
-
 def main():
     while True:
         print("\nMenu:")
@@ -257,7 +254,7 @@ def main():
             first_moment_with_noise_fixed_wait(num_sims = 5_000, sim_time_start = 0, sim_time_finish = 1_000, time_step= 50, wait_list_size = 250, Y_min = -100, Y_max = 100)
 
         elif choice == '4':
-            first_moment_without_noise_comp_and_find_func(num_sims=50_000, sim_time_start=0, sim_time_finish=10_000, time_step=2_500, wait_list_size=150, Y_min=-100, Y_max=100)
+            first_moment_without_noise_comp_and_find_func(num_sims=50_000, sim_time_start=0, sim_time_finish=10_000, time_step=2_500, wait_list_size=150, Y_min=-5, Y_max=5)
 
         elif choice == '9':
             break
