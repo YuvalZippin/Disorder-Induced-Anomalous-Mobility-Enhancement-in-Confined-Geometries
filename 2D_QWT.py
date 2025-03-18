@@ -227,6 +227,16 @@ def first_moment_without_noise_comp_and_find_func(num_sims:int, sim_time_start:i
     plt.grid()
     plt.show()
 
+
+
+
+
+
+
+
+
+
+
 def coefficient_vs_width(num_tests: int, W_initial: int, W_final: int, W_step: int, num_sims: int, sim_time_start: int, sim_time_finish: int, time_step: int, wait_list_size: int):
     """
     Test the relationship between the coefficient A of the power-law function and the system width W.
@@ -296,18 +306,41 @@ def main():
         choice = input("Enter your choice: ")
 
         if choice == '1':
-            plot_3d_walk(*RW_sim_2d_fixed_wait(500, 250, -5, 5))
+            plot_3d_walk(
+                *RW_sim_2d_fixed_wait(sim_time=500,
+                                       wait_list_size=250,
+                                         Y_min=-5,
+                                        Y_max=5))
 
         elif choice == '2':
-            view_hist_2d_fixed_wait(500_000, 10_000, 250, -100, 100)
+            view_hist_2d_fixed_wait(
+                num_sims=500_000,
+                sim_time=10_000, 
+                wait_list_size=250, 
+                Y_min=-100, 
+                Y_max=100)
 
         elif choice == '3':
-            first_moment_with_noise_fixed_wait(num_sims=5_000, sim_time_start=0, sim_time_finish=1_000, time_step=50, wait_list_size=250, Y_min=-100, Y_max=100)
+            first_moment_with_noise_fixed_wait(
+                num_sims=5_000, 
+                sim_time_start=0, 
+                sim_time_finish=1_000, 
+                time_step=50, 
+                wait_list_size=250, 
+                Y_min=-100, 
+                Y_max=100)
 
         elif choice == '4':
-            first_moment_without_noise_comp_and_find_func(num_sims=1_000, sim_time_start=0, sim_time_finish=1_000, time_step=200, wait_list_size=150, Y_min=-25, Y_max=25)
+            first_moment_without_noise_comp_and_find_func(
+                num_sims=1_000, 
+                sim_time_start=0, 
+                sim_time_finish=1_000, 
+                time_step=200, 
+                wait_list_size=150, 
+                Y_min=-25, 
+                Y_max=25)
 
-        elif choice == '5':  # New function call
+        elif choice == '5': 
             coefficient_vs_width(
                 num_tests=75,        
                 W_initial=0,        
