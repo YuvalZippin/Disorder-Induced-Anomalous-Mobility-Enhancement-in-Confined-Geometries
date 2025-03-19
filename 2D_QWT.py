@@ -336,15 +336,28 @@ def coefficient_vs_width_new(num_tests, W_initial, W_final, W_step, num_sims, si
             [(W, num_tests, num_sims, sim_time_start, sim_time_finish, time_step, wait_list_size) for W in W_values]
         )
 
-    # Plot results
+    # Plot regular scale
     plt.figure(figsize=(8, 6))
     plt.plot(W_values, mean_A_values, marker='o', linestyle='-', label="Mean A vs. W")
     plt.xlabel("Width W")
     plt.ylabel("Mean Coefficient A")
-    plt.title("Coefficient A vs. System Width W")
+    plt.title("Coefficient A vs. System Width W (Regular Scale)")
     plt.legend()
     plt.grid()
     plt.show()
+
+    # Plot log-log scale
+    plt.figure(figsize=(8, 6))
+    plt.plot(W_values, mean_A_values, marker='o', linestyle='-', label="Mean A vs. W")
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.xlabel("Width W (log scale)")
+    plt.ylabel("Mean Coefficient A (log scale)")
+    plt.title("Coefficient A vs. System Width W (Log-Log Scale)")
+    plt.legend()
+    plt.grid()
+    plt.show()
+
 
 #???????????????????????????????????????
 
