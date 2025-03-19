@@ -404,20 +404,20 @@ def main():
 
         elif choice == '4':
             first_moment_without_noise_comp_and_find_func(
-                num_sims=1_000, 
+                num_sims=25_000, 
                 sim_time_start=0, 
                 sim_time_finish=1_000, 
-                time_step=200, 
-                wait_list_size=150, 
-                Y_min=-25, 
-                Y_max=25)
+                time_step=50, 
+                wait_list_size=100, 
+                Y_min=-5, 
+                Y_max=5)
 
         elif choice == '5': 
             coefficient_vs_width_new(
-                num_tests=500,        
+                num_tests=1_000,        
                 W_initial=0,        
-                W_final=30,         
-                W_step=3,           
+                W_final=1_000,         
+                W_step=200,           
                 num_sims=25_000,       
                 sim_time_start=0,
                 sim_time_finish=1_000,
