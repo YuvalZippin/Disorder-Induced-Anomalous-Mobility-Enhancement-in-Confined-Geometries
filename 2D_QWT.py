@@ -316,8 +316,10 @@ def compute_A_for_W(W, num_tests, num_sims, sim_time_start, sim_time_finish, tim
             ]
             mean_first_moments_x.append(np.mean([fm[0] for fm in first_moments]))
 
-        popt, _ = curve_fit(power_law, time_values, mean_first_moments_x)
-        A_values.append(popt[0])  # Extract coefficient A
+        # The original code performed a curve_fit here; that section has been removed.
+        # Instead, we directly use the computed mean of first moments for this test.
+        # If needed, you might apply another analysis here.
+        A_values.append(np.mean(mean_first_moments_x))
 
     return np.mean(A_values)  # Average A over num_tests
 
@@ -338,20 +340,11 @@ def coefficient_vs_width_new(num_tests, W_initial, W_final, W_step, num_sims, si
             [(W, num_tests, num_sims, sim_time_start, sim_time_finish, time_step, wait_list_size) for W in W_values]
         )
 
-    # Fit power-law to A vs. W
-    popt, _ = curve_fit(power_law, W_values, mean_A_values)
-    A_fit, b_fit = popt
-    print(f"Fitted power-law: A = {A_fit:.4f} * W^{b_fit:.4f}")
-
-    # Generate fitted curve
-    fitted_values = power_law(W_values, A_fit, b_fit)
-
     # Plot side-by-side graphs
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
 
     # Regular scale plot
     axes[0].plot(W_values, mean_A_values, marker='o', linestyle='-', label="Mean A vs. W")
-    axes[0].plot(W_values, fitted_values, linestyle='--', color='red', label=f"Fit: $A W^{b_fit:.2f}$")
     axes[0].set_xlabel("Width W")
     axes[0].set_ylabel("Mean Coefficient A")
     axes[0].set_title("Coefficient A vs. System Width W (Regular Scale)")
@@ -360,7 +353,6 @@ def coefficient_vs_width_new(num_tests, W_initial, W_final, W_step, num_sims, si
 
     # Log-log scale plot
     axes[1].plot(W_values, mean_A_values, marker='o', linestyle='-', label="Mean A vs. W")
-    axes[1].plot(W_values, fitted_values, linestyle='--', color='red', label=f"Fit: $A W^{b_fit:.2f}$")
     axes[1].set_xscale('log')
     axes[1].set_yscale('log')
     axes[1].set_xlabel("Width W (log scale)")
@@ -371,7 +363,6 @@ def coefficient_vs_width_new(num_tests, W_initial, W_final, W_step, num_sims, si
 
     plt.tight_layout()
     plt.show()
-
 
 #???????????????????????????????????????
 
@@ -428,15 +419,15 @@ def main():
 
         elif choice == '5': 
             coefficient_vs_width_new(
-                num_tests=1_000,        
+                num_tests=10,        
                 W_initial=0,        
-                W_final=300,         
-                W_step=50,           
-                num_sims=25_000,       
+                W_final=100,         
+                W_step=25,           
+                num_sims=1_000,       
                 sim_time_start=0,
                 sim_time_finish=1_000,
-                time_step=100,
-                wait_list_size=100
+                time_step=250,
+                wait_list_size=50
             )
 
         elif choice == '9':
