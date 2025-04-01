@@ -23,82 +23,70 @@ def compute_S_alpha(t: float, alpha: float) -> float:
     eta = generate_eta(alpha)
     return (t / eta) ** alpha
 
-def simulate_S_alpha_over_t(alpha_val: float,
-                            t_start: float,
-                            t_finish: float,
-                            num_t_points: int,
-                            num_samples_per_t: int,
-                            gridsize: int = 50):
+def levy_pdf_alpha_half(x):
     """
-    1) Generate (t, S_alpha) pairs over a range of t values.
-    2) Plot a 2D color histogram/hexbin with:
-       - X-axis = t
-       - Y-axis = S_alpha
-    3) If alpha=1/2, overlay the theoretical mode curve ~ (1/6)*sqrt(t).
+    Compute the theoretical Lévy PDF for α = 1/2 as a function of x.
     
     Parameters:
-        alpha_val (float): Stability parameter α.
-        t_start (float): Minimum t.
-        t_finish (float): Maximum t.
-        num_t_points (int): Number of distinct t values to sample between t_start and t_finish.
-        num_samples_per_t (int): Number of S_alpha samples to generate for each t.
-        gridsize (int): Resolution of the hexbin.
+        x (float or np.array): The random variable (must be positive).
+    
+    Returns:
+        float or np.array: PDF values for the standard Lévy(1/2) distribution (scale=1, location=0).
     """
-    t_values = np.linspace(t_start, t_finish, num_t_points)
+    # Ensure x>0
+    return (1.0 / (2.0 * np.sqrt(np.pi))) * (x ** -1.5) * np.exp(-1.0 / (4.0 * x))
 
-    # Collect all (t, S_alpha) pairs in lists:
-    t_all = []
-    S_all = []
+def analyze_S_alpha_vs_t(alpha_val, t_start, t_finish, num_samples):
+    """
+    Analyze the behavior of S_alpha as a function of t for a fixed alpha.
     
-    # Generate the samples
+    Parameters:
+        alpha_val (float): Stability parameter (0 < alpha < 1).
+        t_start (float): Starting value of t.
+        t_finish (float): Ending value of t.
+        num_samples (int): Number of samples to generate for each t.
+    
+    Returns:
+        None: Displays a plot of S_alpha behavior as a function of t.
+    """
+    t_values = np.linspace(t_start, t_finish, num=50)  # Generate 50 evenly spaced t values
+    mean_S_alpha = []  # Store the mean of S_alpha for each t
+    median_S_alpha = []  # Store the median of S_alpha for each t
+
     for t in t_values:
-        for _ in range(num_samples_per_t):
-            s_val = compute_S_alpha(t, alpha_val)
-            t_all.append(t)
-            S_all.append(s_val)
+        S_alpha_samples = [compute_S_alpha(t, alpha_val) for _ in range(num_samples)]
+        mean_S_alpha.append(np.mean(S_alpha_samples))  # Compute mean
+        median_S_alpha.append(np.median(S_alpha_samples))  # Compute median
+
+    # Plot the behavior of S_alpha as a function of t
+    plt.figure(figsize=(10, 6))
+    plt.plot(t_values, mean_S_alpha, label="Mean of S_alpha", color="blue", marker="o")
+    plt.plot(t_values, median_S_alpha, label="Median of S_alpha", color="orange", marker="x")
     
-    t_all = np.array(t_all)
-    S_all = np.array(S_all)
-    
-    # Plot a 2D hexbin
-    plt.figure(figsize=(9, 6))
-    hb = plt.hexbin(t_all, S_all, gridsize=gridsize, cmap='viridis',
-                    bins='log', mincnt=1)
-    plt.colorbar(hb, label='log10(count)')
-    
-    plt.xlabel("Laboratory time t")
-    plt.ylabel(r"$S_\alpha$")
-    plt.title(rf"2D distribution of $S_\alpha$ vs. $t$,  $\alpha = {alpha_val}$")
-    
-    # If alpha = 1/2, overlay a theoretical mode curve:
-    if abs(alpha_val - 0.5) < 1e-14:
-        # The mode of standard Lévy(1/2) is at ~ 1/6 for scale=1,
-        # so for S_alpha ~ sqrt(t / eta), it should scale like sqrt(t).
-        # We'll overlay y = (1/6)*sqrt(t).
-        t_curve = np.linspace(t_start, t_finish, 200)
-        mode_curve = (1.0/6.0)*np.sqrt(t_curve)
-        
-        plt.plot(t_curve, mode_curve, 'r--', linewidth=2,
-                 label="Theoretical mode ~ (1/6)√t")
-        plt.legend()
-    
-    plt.tight_layout()
+    # If alpha = 1/2, overlay the theoretical Lévy PDF
+    if alpha_val == 0.5:
+        levy_pdf_values = levy_pdf_alpha_half(t_values)
+        plt.plot(t_values, levy_pdf_values, label="Theoretical Lévy PDF (alpha=1/2)", color="green", linestyle="--")
+
+    plt.xlabel("t (Laboratory Time)")
+    plt.ylabel("S_alpha (Density)")
+    plt.yscale("log")  # Log scale for better visualization
+    plt.xscale("log")  # Log scale for better visualization
+    plt.title(f"Behavior of S_alpha as a Function of t (alpha = {alpha_val})")
+    plt.legend()
+    plt.grid(True)
     plt.show()
 
-def main():
-    # Example usage:
-    alpha_val = 0.5      # If = 1/2, we'll overlay the mode curve
-    t_start = 1.0
-    t_finish = 10.0
-    num_t_points = 50
-    num_samples_per_t = 2000
-    
-    simulate_S_alpha_over_t(alpha_val,
-                            t_start,
-                            t_finish,
-                            num_t_points,
-                            num_samples_per_t,
-                            gridsize=60)
 
+
+
+    # Main function to call the analysis
 if __name__ == "__main__":
-    main()
+    # Parameters
+    alpha_val = 0.5  # Stability parameter
+    t_start = 1.0  # Start of t range
+    t_finish = 100.0  # End of t range
+    num_samples = 100_000  # Number of samples for each t
+    
+    # Call the analysis function
+    analyze_S_alpha_vs_t(alpha_val, t_start, t_finish, num_samples)
