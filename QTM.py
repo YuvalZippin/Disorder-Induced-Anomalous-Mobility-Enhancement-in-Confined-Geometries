@@ -43,48 +43,7 @@ def levy_pdf_alpha_half(t):
     """
     return (1 / (2 * np.sqrt(np.pi))) * t ** (-3/2) * np.exp(-1 / (4 * t))
 
-def generate_histogram_S_alpha(alpha: float, t_values: np.array, num_samples: int, bins: int = 50):
-    """
-    Generate histograms of S_alpha values for different t values.
-    
-    This function creates two histograms side by side:
-      - Left: Histogram with a linear y-scale.
-      - Right: Histogram with a logarithmic y-scale.
-    
-    Parameters:
-        alpha (float): Stability parameter (0 < alpha < 1).
-        t_values (np.array): Array of time values.
-        num_samples (int): Number of S_alpha samples per time value.
-        bins (int): Number of bins in the histogram.
-    """
-    S_alpha_values = []
-    
-    # Generate S_alpha samples for each time value t
-    for t in t_values:
-        samples = [compute_S_alpha(t, alpha) for _ in range(num_samples)]
-        S_alpha_values.extend(samples)
-    
-    # Create two subplots: one for linear and one for logarithmic scale
-    fig, axs = plt.subplots(1, 2, figsize=(14, 6))
-    
-    # Linear scale histogram
-    axs[0].hist(S_alpha_values, bins=bins, density=True, alpha=0.6, color='b', edgecolor='black')
-    axs[0].set_xlabel("S_alpha")
-    axs[0].set_ylabel("Density")
-    axs[0].set_title(f"Histogram of S_alpha (Linear Scale) for alpha={alpha}")
-    axs[0].grid(True)
-    
-    # Logarithmic scale histogram
-    axs[1].hist(S_alpha_values, bins=bins, density=True, alpha=0.6, color='b', edgecolor='black')
-    axs[1].set_xlabel("S_alpha")
-    axs[1].set_ylabel("Density")
-    axs[1].set_title(f"Histogram of S_alpha (Logarithmic Scale) for alpha={alpha}")
-    axs[1].grid(True)
-    axs[1].set_yscale('log')
-    axs[1].set_xscale('log')
-    
-    plt.tight_layout()
-    plt.show()
+
 
 def main():
     while True:
@@ -100,10 +59,8 @@ def main():
         choice = input("Enter your choice: ")
 
         if choice == '1':
-            # Define t values and number of samples per t for the histogram
-            t_values = np.linspace(0.1, 10, 50)  # Time values from 0.1 to 10
-            num_samples = 1000  # Number of samples per t value
-            generate_histogram_S_alpha(ALPHA, t_values, num_samples)
+            # Placeholder for View Histogram of S_alpha
+            print(" View Histogram of S_alpha is not implemented yet.")
 
         elif choice == '2':
             # Placeholder for 2D random walk visualization
