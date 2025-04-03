@@ -46,7 +46,7 @@ def levy_pdf_alpha_half(t):
 def main():
     while True:
         print("\nMenu:")
-        print("1. View Histogram of S_alpha")
+        print("1. View Histogram of S_alpha as a function of t where alpha = 1/2")
         print("2. View Single 2D Random Walk")
         print("3. View Histogram of Final Positions")
         print("4. View First Moment with Noise")
