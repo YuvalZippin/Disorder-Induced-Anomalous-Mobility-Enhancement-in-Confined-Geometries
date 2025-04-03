@@ -1,5 +1,5 @@
 import numpy as np
-import matplotlib.pyplot as plt
+
 
 
 def generate_eta(alpha: float) -> float:
@@ -41,6 +41,15 @@ def levy_pdf_alpha_half(t):
         float or np.array: PDF values.
     """
     return (1 / (2 * np.sqrt(np.pi))) * t ** (-3/2) * np.exp(-1 / (4 * t))
+
+
+
+
+
+
+
+
+
 
 
 def main():
