@@ -1,8 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D 
+from scipy.optimize import curve_fit
 
-
+#? Mathematical functions:
 def generate_eta(alpha: float) -> float:
     """
     Generate one-sided Lévy stable random variable η using the Chambers et al. method.
@@ -34,7 +35,11 @@ def levy_pdf_alpha_half(x):
     pdf[positive] = (1.0 / (2.0 * np.sqrt(np.pi))) * (x[positive] ** -1.5) * np.exp(-1.0 / (4.0 * x[positive]))
     return pdf
 
+def power_law(x, A, beta):
+    return A * x**beta
 
+
+#? Simulation functions:
 def run_eta_validation_plot(alpha: float = 0.5, N_samples: int = 100_000, hist_range=(0.001, 25.0), num_bins=200):
     """
     Run validation of generate_eta by comparing histogram of samples to theoretical PDF.
@@ -58,6 +63,7 @@ def run_eta_validation_plot(alpha: float = 0.5, N_samples: int = 100_000, hist_r
     plt.tight_layout()
     plt.show()
 
+# !!!
 
 def run_single_trajectory(t: float, alpha: float, F: float, Ly: int, Lz: int) -> list[tuple[int, int, int]]:
     """
@@ -124,6 +130,7 @@ def run_single_trajectory(t: float, alpha: float, F: float, Ly: int, Lz: int) ->
             
     return trajectory
 
+# !!!
 
 def plot_trajectory_3d(trajectory: list[tuple[int, int, int]]):
     """
@@ -150,6 +157,7 @@ def plot_trajectory_3d(trajectory: list[tuple[int, int, int]]):
     ax.legend()
     plt.show()
 
+# !!!
 
 def run_multiple_and_plot_final_histograms(
     t: float,
@@ -201,6 +209,7 @@ def run_multiple_and_plot_final_histograms(
     plt.tight_layout()
     plt.show()
 
+# !!!
 
 def calculate_mean_final_position(t: float, alpha: float, F: float, Ly: int, Lz: int, num_sims: int) -> tuple[float, float, float]:
     """
@@ -233,12 +242,14 @@ def calculate_mean_final_position(t: float, alpha: float, F: float, Ly: int, Lz:
     
     return mean_x, mean_y, mean_z
 
+# !!!
 
 def plot_mean_moment_vs_time_S_alpha(t_values: list[float], alpha: float, F: float, Ly: int, Lz: int, num_sims: int):
     """
     For a range of target times, compute the mean final position from multiple 
-    simulations and plot the first moment (<X>, <Y>, <Z>) versus target time t on a log-log scale.
-    
+    simulations, fit a power law g(t)=A*t^beta to the data, and plot the first moment 
+    (<X>, <Y>, <Z>) versus target time t on a log-log scale.
+
     Parameters:
         t_values (list of float): List or array of target times.
         alpha (float): Stability parameter for the Lévy distribution.
@@ -251,22 +262,70 @@ def plot_mean_moment_vs_time_S_alpha(t_values: list[float], alpha: float, F: flo
     mean_y_vals = []
     mean_z_vals = []
     
+    # Loop over target times and collect mean final positions.
     for t in t_values:
         mean_x, mean_y, mean_z = calculate_mean_final_position(t, alpha, F, Ly, Lz, num_sims)
         mean_x_vals.append(mean_x)
         mean_y_vals.append(mean_y)
         mean_z_vals.append(mean_z)
     
+    t_array = np.array(t_values)
+    mean_x_vals = np.array(mean_x_vals)
+    mean_y_vals = np.array(mean_y_vals)
+    mean_z_vals = np.array(mean_z_vals)
+    
+    # Perform curve fitting for X using the raw data.
+    try:
+        popt_x, _ = curve_fit(power_law, t_array, mean_x_vals, maxfev=10000)
+        A_x, beta_x = popt_x
+        fitted_x = power_law(t_array, A_x, beta_x)
+        print(f"Fit for <X>: A = {A_x:.3e}, beta = {beta_x:.3f}")
+    except Exception as e:
+        print("Fit for <X> failed:", e)
+        A_x, beta_x = None, None
+        fitted_x = None
+
+    # For Y and Z, fit the absolute values in case they are near zero.
+    try:
+        popt_y, _ = curve_fit(power_law, t_array, np.abs(mean_y_vals), maxfev=10000)
+        A_y, beta_y = popt_y
+        fitted_y = power_law(t_array, A_y, beta_y)
+        print(f"Fit for <Y> (abs): A = {A_y:.3e}, beta = {beta_y:.3f}")
+    except Exception as e:
+        print("Fit for <Y> failed:", e)
+        A_y, beta_y = None, None
+        fitted_y = None
+
+    try:
+        popt_z, _ = curve_fit(power_law, t_array, np.abs(mean_z_vals), maxfev=10000)
+        A_z, beta_z = popt_z
+        fitted_z = power_law(t_array, A_z, beta_z)
+        print(f"Fit for <Z> (abs): A = {A_z:.3e}, beta = {beta_z:.3f}")
+    except Exception as e:
+        print("Fit for <Z> failed:", e)
+        A_z, beta_z = None, None
+        fitted_z = None
+
+    # Generate the log-log plot.
     plt.figure(figsize=(10, 6))
-    # We assume all moments are non-negative or that plotting absolute values makes sense.
-    # If negative values occur, consider using a symmetric log scale.
-    plt.loglog(t_values, mean_x_vals, 'o-', label='<X>', markersize=5)
-    plt.loglog(t_values, mean_y_vals, 's-', label='<Y>', markersize=5)
-    plt.loglog(t_values, mean_z_vals, '^-', label='<Z>', markersize=5)
+    plt.loglog(t_array, mean_x_vals, 'o', color='blue', label='<X> simulation')
+    plt.loglog(t_array, np.abs(mean_y_vals), 's', color='red', label='<Y> simulation (abs)')
+    plt.loglog(t_array, np.abs(mean_z_vals), '^', color='green', label='<Z> simulation (abs)')
+    
+    # Overlay fitted curves if available.
+    if fitted_x is not None:
+        plt.loglog(t_array, fitted_x, '-', color='blue',
+                   label=f'<X> fit (β≈{beta_x:.2f})')
+    if fitted_y is not None:
+        plt.loglog(t_array, fitted_y, '-', color='red',
+                   label=f'<Y> fit (β≈{beta_y:.2f})')
+    if fitted_z is not None:
+        plt.loglog(t_array, fitted_z, '-', color='green',
+                   label=f'<Z> fit (β≈{beta_z:.2f})')
     
     plt.xlabel("Target Time t")
-    plt.ylabel("Mean Final Position")
-    plt.title("Mean Final Position vs. Target Time t (S_α method)")
+    plt.ylabel("Mean Final Position (absolute for Y and Z)")
+    plt.title("Mean Final Position vs. Target Time t (Power-law Fit)")
     plt.legend()
     plt.grid(True, which="both", ls="--", alpha=0.6)
     plt.tight_layout()
@@ -276,7 +335,7 @@ def plot_mean_moment_vs_time_S_alpha(t_values: list[float], alpha: float, F: flo
 
 
 
-
+#? Main function to run the program:
 def main():
     while True:
         print("\nMenu:")
@@ -294,7 +353,7 @@ def main():
         elif choice == '2':
             print("Running and plotting a single trajectory...")
             t = 100.0
-            alpha = 0.8
+            alpha = 0.5
             F = 0.5
             Ly = 30
             Lz = 30
@@ -303,7 +362,7 @@ def main():
 
         elif choice == '3':
             t = 100.0
-            alpha = 0.8
+            alpha = 0.5
             F = 0.5
             Ly = 30
             Lz = 30
