@@ -331,6 +331,127 @@ def plot_mean_moment_vs_time_S_alpha(t_values: list[float], alpha: float, F: flo
     plt.tight_layout()
     plt.show()
 
+# !!!
+
+def calculate_mean_squared_displacement(t: float, alpha: float, F: float, Ly: int, Lz: int, num_sims: int) -> tuple[float, float, float]:
+    """
+    Run multiple simulations and compute the Mean Squared Displacement (MSD) components.
+    
+    Parameters:
+        t (float): Target time.
+        alpha (float): Stability parameter.
+        F (float): Bias in the x-direction.
+        Ly (int): System size in Y.
+        Lz (int): System size in Z.
+        num_sims (int): Number of simulations.
+    
+    Returns:
+        (mean_x_sq, mean_y_sq, mean_z_sq): Mean of the squared final positions in x, y, z.
+    """
+    sum_x2, sum_y2, sum_z2 = 0.0, 0.0, 0.0
+    valid_runs = 0
+    
+    for _ in range(num_sims):
+        traj = run_single_trajectory(t, alpha, F, Ly, Lz)
+        # If trajectory is empty or invalid, skip.
+        if not traj:
+            continue
+        x, y, z = traj[-1]
+        sum_x2 += x**2
+        sum_y2 += y**2
+        sum_z2 += z**2
+        valid_runs += 1
+    
+    if valid_runs == 0:
+        return float('nan'), float('nan'), float('nan')
+    
+    mean_x_sq = sum_x2 / valid_runs
+    mean_y_sq = sum_y2 / valid_runs
+    mean_z_sq = sum_z2 / valid_runs
+    
+    return mean_x_sq, mean_y_sq, mean_z_sq
+
+# !!!
+
+def plot_msd_vs_time_S_alpha(t_values: list[float], alpha: float, F: float, Ly: int, Lz: int, num_sims: int):
+    """
+    Compute the MSD components (<X^2>, <Y^2>, <Z^2>) over a range of target times and plot them
+    on a log-log scale. Also perform a power-law fit g(t) = A*t^beta for each component.
+    
+    Parameters:
+        t_values (list of float): List/array of target times.
+        alpha (float): Stability parameter.
+        F (float): Bias force in the x-direction.
+        Ly (int): System size in Y.
+        Lz (int): System size in Z.
+        num_sims (int): Number of simulations per target time.
+    """
+    mean_x2_vals = []
+    mean_y2_vals = []
+    mean_z2_vals = []
+    
+    for t in t_values:
+        mean_x2, mean_y2, mean_z2 = calculate_mean_squared_displacement(t, alpha, F, Ly, Lz, num_sims)
+        mean_x2_vals.append(mean_x2)
+        mean_y2_vals.append(mean_y2)
+        mean_z2_vals.append(mean_z2)
+    
+    t_arr = np.array(t_values)
+    mean_x2_arr = np.array(mean_x2_vals)
+    mean_y2_arr = np.array(mean_y2_vals)
+    mean_z2_arr = np.array(mean_z2_vals)
+    
+    # Perform power-law fits on each MSD component.
+    try:
+        popt_x2, _ = curve_fit(power_law, t_arr, mean_x2_arr, maxfev=10000)
+        A_x2, beta_x2 = popt_x2
+        fitted_x2 = power_law(t_arr, A_x2, beta_x2)
+        print(f"MSD <X^2> fit: A = {A_x2:.3e}, beta = {beta_x2:.3f}")
+    except Exception as e:
+        print("Fit for MSD <X^2> failed:", e)
+        A_x2, beta_x2 = None, None
+        fitted_x2 = None
+
+    try:
+        popt_y2, _ = curve_fit(power_law, t_arr, mean_y2_arr, maxfev=10000)
+        A_y2, beta_y2 = popt_y2
+        fitted_y2 = power_law(t_arr, A_y2, beta_y2)
+        print(f"MSD <Y^2> fit: A = {A_y2:.3e}, beta = {beta_y2:.3f}")
+    except Exception as e:
+        print("Fit for MSD <Y^2> failed:", e)
+        A_y2, beta_y2 = None, None
+        fitted_y2 = None
+
+    try:
+        popt_z2, _ = curve_fit(power_law, t_arr, mean_z2_arr, maxfev=10000)
+        A_z2, beta_z2 = popt_z2
+        fitted_z2 = power_law(t_arr, A_z2, beta_z2)
+        print(f"MSD <Z^2> fit: A = {A_z2:.3e}, beta = {beta_z2:.3f}")
+    except Exception as e:
+        print("Fit for MSD <Z^2> failed:", e)
+        A_z2, beta_z2 = None, None
+        fitted_z2 = None
+
+    # Plot the data and fitted curves on a log-log plot.
+    plt.figure(figsize=(10, 6))
+    plt.loglog(t_arr, mean_x2_arr, 'o', color='blue', label='MSD <X^2> data')
+    plt.loglog(t_arr, mean_y2_arr, 's', color='red', label='MSD <Y^2> data')
+    plt.loglog(t_arr, mean_z2_arr, '^', color='green', label='MSD <Z^2> data')
+    
+    if fitted_x2 is not None:
+        plt.loglog(t_arr, fitted_x2, '-', color='blue', label=f'<X^2> fit (β≈{beta_x2:.2f})')
+    if fitted_y2 is not None:
+        plt.loglog(t_arr, fitted_y2, '-', color='red', label=f'<Y^2> fit (β≈{beta_y2:.2f})')
+    if fitted_z2 is not None:
+        plt.loglog(t_arr, fitted_z2, '-', color='green', label=f'<Z^2> fit (β≈{beta_z2:.2f})')
+    
+    plt.xlabel("Target Time t")
+    plt.ylabel("MSD Component")
+    plt.title("MSD Components vs. Target Time t (Power-law Fit)")
+    plt.legend()
+    plt.grid(True, which="both", ls="--", alpha=0.6)
+    plt.tight_layout()
+    plt.show()
 
 
 
@@ -343,9 +464,10 @@ def main():
         print("2. Run and Plot Single Trajectory")
         print("3. Run Multiple Trajectories & Plot Final Position Histograms")
         print("4. Plot Mean Final Position vs. Target Time")
-        print("5. Exit")
+        print("5. Plot MSD (Mean Squared Displacement) vs. Target Time")
+        print("6. Exit")
         
-        choice = input("Enter your choice (1-5): ").strip()
+        choice = input("Enter your choice (1-6): ").strip()
         
         if choice == '1':
             run_eta_validation_plot()
@@ -361,32 +483,40 @@ def main():
             plot_trajectory_3d(trajectory)
 
         elif choice == '3':
+            print("Running multiple trajectories for final position histograms...")
             t = 100.0
             alpha = 0.5
             F = 0.5
             Ly = 30
             Lz = 30
-            num_trials = 1000
-            print(f"Running {num_trials} simulations for final position histograms...")
+            num_trials = 100_000
             run_multiple_and_plot_final_histograms(t, alpha, F, Ly, Lz, num_trials)
 
         elif choice == '4':
-            # Define a range of target times (example values)
-            t_values = np.logspace(1, 3, num=10)  # From t=10 to t=1000
+            print("Plotting mean final position vs target time...")
+            t_values = np.logspace(1, 3, num=10)  # e.g., t from 10 to 1000
             alpha = 0.5
             F = 0.5
-            Ly = 10
-            Lz = 10
-            num_sims = 100_000  # Simulations per t value
-            print("Calculating mean final positions over a range of target times...")
+            Ly = 30
+            Lz = 30
+            num_sims = 50_000
             plot_mean_moment_vs_time_S_alpha(t_values, alpha, F, Ly, Lz, num_sims)
 
         elif choice == '5':
+            print("Plotting MSD vs target time...")
+            t_values = np.logspace(1, 3, num=10)  # t values from 10 to 1000
+            alpha = 0.5
+            F = 0.5
+            Ly = 30
+            Lz = 30
+            num_sims = 50_000
+            plot_msd_vs_time_S_alpha(t_values, alpha, F, Ly, Lz, num_sims)
+
+        elif choice == '6':
             print("Exiting...")
             break
-
         else:
-            print("Invalid choice. Please enter a number between 1 and 5.")
+            print("Invalid choice. Please enter a number between 1 and 6.")
 
 if __name__ == "__main__":
     main()
