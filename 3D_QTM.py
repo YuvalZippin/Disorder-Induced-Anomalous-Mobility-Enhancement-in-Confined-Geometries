@@ -459,9 +459,9 @@ def plot_msd_vs_time_S_alpha(t_values: list[float], alpha: float, F: float, Ly: 
 #? Main function to run the program:
 def main():
 
-    ALPHA = 0.45
+    ALPHA = 0.5
     FORCE = 0.5
-
+    NUM_SIMS = 100_000
     WIDTH = 30
     HIGHT = 30
 
@@ -496,7 +496,7 @@ def main():
             F = FORCE
             Ly = WIDTH
             Lz = HIGHT
-            num_trials = 100_000
+            num_trials = NUM_SIMS
             run_multiple_and_plot_final_histograms(t, alpha, F, Ly, Lz, num_trials)
 
         elif choice == '4':
@@ -506,7 +506,7 @@ def main():
             F = FORCE
             Ly = WIDTH
             Lz = HIGHT
-            num_sims = 250_000
+            num_sims = NUM_SIMS
             plot_mean_moment_vs_time_S_alpha(t_values, alpha, F, Ly, Lz, num_sims)
 
         elif choice == '5':
@@ -516,7 +516,7 @@ def main():
             F = FORCE
             Ly = WIDTH
             Lz = HIGHT
-            num_sims = 250_000
+            num_sims = NUM_SIMS
             plot_msd_vs_time_S_alpha(t_values, alpha, F, Ly, Lz, num_sims)
 
         elif choice == '6':
