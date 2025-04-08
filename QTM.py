@@ -8,7 +8,7 @@ def generate_eta(alpha: float) -> float:
     """
     Generate one-sided Lévy stable random variable η using the Chambers et al. method.
     """
-    theta = np.random.uniform(0, np.pi)  # θ ~ U(0, π)
+    theta = np.pi * np.random.uniform(0, 1)  # θ ~ U(0, π)
     W = -np.log(np.random.uniform(0, 1))  # W = -ln(U), U ~ U(0,1)
     a_theta = (
         np.sin((1 - alpha) * theta)
@@ -132,7 +132,7 @@ def run_single_trajectory(t: float, alpha: float, F: float, Ly: int, Lz: int) ->
 
 # !!!
 
-def plot_trajectory_3d(trajectory: list[tuple[int, int, int]]):
+def plot_trajectory_3d(trajectory: list[tuple[int, int, int]]) -> None:
     """
     Plot a 3D particle trajectory.
     
@@ -166,7 +166,7 @@ def run_multiple_and_plot_final_histograms(
     Ly: int,
     Lz: int,
     num_trials: int
-):
+) -> None:
     """
     Run multiple random walk simulations and plot histograms of final positions.
 
@@ -244,7 +244,7 @@ def calculate_mean_final_position(t: float, alpha: float, F: float, Ly: int, Lz:
 
 # !!!
 
-def plot_mean_moment_vs_time_S_alpha(t_values: list[float], alpha: float, F: float, Ly: int, Lz: int, num_sims: int):
+def plot_mean_moment_vs_time_S_alpha(t_values: list[float], alpha: float, F: float, Ly: int, Lz: int, num_sims: int) -> None:
     """
     For a range of target times, compute the mean final position from multiple 
     simulations, fit a power law g(t)=A*t^beta to the data, and plot the first moment 
@@ -373,7 +373,7 @@ def calculate_mean_squared_displacement(t: float, alpha: float, F: float, Ly: in
 
 # !!!
 
-def plot_msd_vs_time_S_alpha(t_values: list[float], alpha: float, F: float, Ly: int, Lz: int, num_sims: int):
+def plot_msd_vs_time_S_alpha(t_values: list[float], alpha: float, F: float, Ly: int, Lz: int, num_sims: int) -> None:
     """
     Compute the MSD components (<X^2>, <Y^2>, <Z^2>) over a range of target times and plot them
     on a log-log scale. Also perform a power-law fit g(t) = A*t^beta for each component.
@@ -486,7 +486,7 @@ def main():
             print("Running multiple trajectories for final position histograms...")
             t = 100.0
             alpha = 0.5
-            F = 0.5
+            F = 10
             Ly = 30
             Lz = 30
             num_trials = 100_000
@@ -496,20 +496,20 @@ def main():
             print("Plotting mean final position vs target time...")
             t_values = np.logspace(1, 3, num=10)  # e.g., t from 10 to 1000
             alpha = 0.5
-            F = 0.5
+            F = 0.1
             Ly = 30
             Lz = 30
-            num_sims = 50_000
+            num_sims = 100_000
             plot_mean_moment_vs_time_S_alpha(t_values, alpha, F, Ly, Lz, num_sims)
 
         elif choice == '5':
             print("Plotting MSD vs target time...")
             t_values = np.logspace(1, 3, num=10)  # t values from 10 to 1000
             alpha = 0.5
-            F = 0.5
+            F = 0.1
             Ly = 30
             Lz = 30
-            num_sims = 50_000
+            num_sims = 100_000
             plot_msd_vs_time_S_alpha(t_values, alpha, F, Ly, Lz, num_sims)
 
         elif choice == '6':
