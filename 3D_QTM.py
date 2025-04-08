@@ -458,6 +458,13 @@ def plot_msd_vs_time_S_alpha(t_values: list[float], alpha: float, F: float, Ly: 
 
 #? Main function to run the program:
 def main():
+
+    ALPHA = 0.45
+    FORCE = 0.5
+
+    WIDTH = 30
+    HIGHT = 30
+
     while True:
         print("\nMenu:")
         print("1. Validate eta generation (Plot Histogram vs PDF for alpha=0.5)")
@@ -475,40 +482,40 @@ def main():
         elif choice == '2':
             print("Running and plotting a single trajectory...")
             t = 100.0
-            alpha = 0.5
-            F = 0.5
-            Ly = 30
-            Lz = 30
+            alpha = ALPHA
+            F = FORCE
+            Ly = WIDTH
+            Lz = HIGHT
             trajectory = run_single_trajectory(t, alpha, F, Ly, Lz)
             plot_trajectory_3d(trajectory)
 
         elif choice == '3':
             print("Running multiple trajectories for final position histograms...")
             t = 100.0
-            alpha = 0.5
-            F = 10
-            Ly = 30
-            Lz = 30
+            alpha = ALPHA
+            F = FORCE
+            Ly = WIDTH
+            Lz = HIGHT
             num_trials = 100_000
             run_multiple_and_plot_final_histograms(t, alpha, F, Ly, Lz, num_trials)
 
         elif choice == '4':
             print("Plotting mean final position vs target time...")
             t_values = np.logspace(1, 3, num=10)  # e.g., t from 10 to 1000
-            alpha = 0.5
-            F = 100
-            Ly = 30
-            Lz = 30
+            alpha = ALPHA
+            F = FORCE
+            Ly = WIDTH
+            Lz = HIGHT
             num_sims = 250_000
             plot_mean_moment_vs_time_S_alpha(t_values, alpha, F, Ly, Lz, num_sims)
 
         elif choice == '5':
             print("Plotting MSD vs target time...")
             t_values = np.logspace(1, 3, num=10)  # t values from 10 to 1000
-            alpha = 0.5
-            F = 100
-            Ly = 30
-            Lz = 30
+            alpha = ALPHA
+            F = FORCE
+            Ly = WIDTH
+            Lz = HIGHT
             num_sims = 250_000
             plot_msd_vs_time_S_alpha(t_values, alpha, F, Ly, Lz, num_sims)
 
