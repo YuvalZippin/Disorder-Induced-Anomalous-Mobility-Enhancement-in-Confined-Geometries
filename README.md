@@ -151,7 +151,7 @@ Both \( A \) and \( b \) are estimated from simulation results using logarithmic
 
 ### 4. Confinement Width
 
-\[ W = y_{\max} - y_{\min} + 1 \]
+\[ W , H\]
 
 Used to evaluate how the width of the system in the Y-direction (and optionally Z) affects particle mobility.
 
