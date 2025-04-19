@@ -1,12 +1,12 @@
 # 🚀 Disorder-Induced Anomalous Mobility Enhancement in Confined Geometries
 
 ## 📄 Abstract
-This project explores how spatial disorder can paradoxically enhance the mobility of particles within confined geometries. We reconstruct and extend Quantum Transport Models (QTMs) to examine the effects of quenched disorder and geometric constraints on particle dynamics. Our simulations aim to reproduce established results, verify analytical predictions, and contribute insights into anomalous diffusion in disordered environments.
+This project explores how spatial disorder can paradoxically enhance the mobility of particles within confined geometries. We reconstruct and extend Quenched Trap Model (QTMs) to examine the effects of quenched disorder and geometric constraints on particle dynamics. Our simulations aim to reproduce established results, verify analytical predictions, and contribute insights into anomalous diffusion in disordered environments.
 
 ## 🧪 Research Context
 - **Laboratory**: Professor Stas Borv’s Research Group  
 - **Researcher**: Undergraduate Physics Student (Static Physics specialization)  
-- **Primary Focus**: Anomalous transport in disordered and confined media using Quantum Transport Models (QTMs)
+- **Primary Focus**: Anomalous transport in disordered and confined media using Quenched Trap Model (QTMs)
 
 ## 🛠️ Methodology and Tools
 - **Programming Languages**: Python (prototyping), C++ (high-performance implementation)
@@ -116,6 +116,63 @@ Implements a Lévy-type distribution:
 - `mean_final_position(...)`: Computes ensemble ⟨x⟩
 - `plot_mean_position_vs_width(...)`: ⟨x⟩ as a function of width W
 - `test_runtime_and_scaling(...)`: Performance benchmark
+
+---
+
+## Mathematical Functions and Probability Vectors Used 📐
+
+### 1. Waiting Time Distribution (Power-Law)
+
+\[ \psi(t) = \frac{\alpha}{t^{1+\alpha}}, \quad t \geq 1 \]
+
+This heavy-tailed distribution governs the time a particle waits at each site. It leads to anomalous diffusion characterized by sublinear growth of the mean squared displacement.
+
+### 2. Inverse Transform Sampling (S\_\alpha Function)
+
+\[ S_\alpha = \left(\frac{1}{u}\right)^{1/\alpha}, \quad u \sim \mathcal{U}(0,1) \]
+
+Used to generate power-law distributed waiting times for each site. The variable \( u \) is sampled uniformly from \( (0,1) \). The resulting \( S_\alpha \) values reflect a heavy-tailed Lévy distribution:
+
+- For \( 0 < \alpha < 1 \): extremely long waiting times dominate.
+- For \( \alpha = 1 \): Cauchy-like tail.
+- For \( 1 < \alpha < 2 \): heavy tails persist but average waiting times become finite.
+
+This function models quenched disorder by assigning a fixed \( S_\alpha \) to each lattice site.
+
+### 3. Mean Squared Displacement (MSD)
+
+\[ \langle x^2(t) \rangle = A \cdot t^b \]
+
+Where:
+- \( A \) is a scaling prefactor
+- \( b \) is the diffusion exponent (subdiffusion if \( b < 1 \))
+
+Both \( A \) and \( b \) are estimated from simulation results using logarithmic curve fitting.
+
+### 4. Confinement Width
+
+\[ W = y_{\max} - y_{\min} + 1 \]
+
+Used to evaluate how the width of the system in the Y-direction (and optionally Z) affects particle mobility.
+
+### 5. Probability Vectors Used 🚶‍♂️📊
+
+- **1D QTM**:
+  \[ \text{prob\_right} = 0.5 \]
+
+- **2D QTM**:
+  \[ \text{prob\_vec} = [0.25 + \varepsilon, 0.25 - \varepsilon, 0.25, 0.25] \]
+  Directions: \([+x, -x, +y, -y]\), with bias \( \varepsilon \) in X
+
+- **3D QTM**:
+  \[ \text{prob\_vec} = [p_x^+, p_x^-, p_y^+, p_y^-, p_z^+, p_z^-] \]
+  Where in implementation:
+  \[ p_x^+ = \frac{1}{6} + \varepsilon, \quad p_x^- = \frac{1}{6} - \varepsilon, \quad p_y^+ = p_y^- = p_z^+ = p_z^- = \frac{1}{6} \]
+
+This reflects a weak directional bias along the +X direction, common in testing anisotropic transport.
+
+---
+
 
 ### 🎯 Research Goals
 - Measure mobility enhancement under spatial constraints
