@@ -620,7 +620,7 @@ def main():
 
         elif choice == '5':
             print("Plotting MSD vs target time...")
-            t_values = np.logspace(1, 10, num=100)  # t values from 10 to 1000
+            t_values = np.logspace(1, 7, num=100)  # t values from 10 to 1000
             alpha = ALPHA
             F = FORCE
             Ly = WIDTH
@@ -629,7 +629,7 @@ def main():
             plot_msd_vs_time_S_alpha(t_values, alpha, F, Ly, Lz, num_sims)
 
         elif choice == '6':
-            L_vals    = np.arange(10, 101, 10)  # e.g. L = 10,20,…,100
+            L_vals    = np.arange(0,10,1)  # e.g. L = 10,20,…,100
             alpha     = ALPHA
             F         = FORCE
             num_sims  = NUM_SIMS
