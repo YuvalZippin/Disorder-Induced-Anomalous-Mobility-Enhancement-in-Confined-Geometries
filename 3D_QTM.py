@@ -496,20 +496,20 @@ def main():
             print("Plotting mean final position vs target time...")
             t_values = np.logspace(1, 3, num=10)  # e.g., t from 10 to 1000
             alpha = 0.5
-            F = 0.1
+            F = 100
             Ly = 30
             Lz = 30
-            num_sims = 100_000
+            num_sims = 250_000
             plot_mean_moment_vs_time_S_alpha(t_values, alpha, F, Ly, Lz, num_sims)
 
         elif choice == '5':
             print("Plotting MSD vs target time...")
             t_values = np.logspace(1, 3, num=10)  # t values from 10 to 1000
             alpha = 0.5
-            F = 0.1
+            F = 100
             Ly = 30
             Lz = 30
-            num_sims = 100_000
+            num_sims = 250_000
             plot_msd_vs_time_S_alpha(t_values, alpha, F, Ly, Lz, num_sims)
 
         elif choice == '6':
