@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D 
 from scipy.optimize import curve_fit
+import multiprocessing as mp
 
 #? Mathematical functions:
 def generate_eta(alpha: float) -> float:
@@ -453,6 +454,111 @@ def plot_msd_vs_time_S_alpha(t_values: list[float], alpha: float, F: float, Ly: 
     plt.tight_layout()
     plt.show()
 
+# !!!
+
+def calculate_fitted_A(
+    t_values: list[float],
+    alpha: float,
+    F: float,
+    L: int,
+    num_sims: int,
+    moment_type: str
+) -> float:
+    """
+    For a fixed L and moment_type ('first' for <X>, 'second' for <X^2>),
+    run num_sims trajectories at each t in t_values, compute the mean moment,
+    and fit A * t**beta to those means. Return the fitted prefactor A.
+    """
+    means = []
+    for t in t_values:
+        # collect X or X^2 over num_sims runs
+        vals = []
+        for _ in range(num_sims):
+            traj = run_single_trajectory(t, alpha, F, L, L)
+            x = traj[-1][0]
+            vals.append(x if moment_type=='first' else x**2)
+        means.append(np.mean(vals))
+        
+    t_arr = np.array(t_values)
+    y = np.abs(np.array(means))  # ensure positive for fitting
+    try:
+        (A_fit, _), _ = curve_fit(
+            power_law,
+            t_arr,
+            y,
+            maxfev=10_000
+        )
+    except Exception as e:
+        print(f"  [L={L}, moment={moment_type}] fit failed:", e)
+        return np.nan
+    return A_fit
+
+def compute_mean_A_for_L(
+    L: int,
+    alpha: float,
+    F: float,
+    num_sims: int,
+    num_tests: int,
+    t_values: list[float],
+    moment_type: str
+) -> float:
+    """
+    Repeat calculate_fitted_A num_tests times for given L and moment_type,
+    and return the average of all non-NaN A values.
+    """
+    A_list = []
+    for _ in range(num_tests):
+        A = calculate_fitted_A(t_values, alpha, F, L, num_sims, moment_type)
+        if not np.isnan(A):
+            A_list.append(A)
+    return float(np.mean(A_list)) if A_list else np.nan
+
+def plot_A_vs_L(
+    L_values: list[int],
+    alpha: float,
+    F: float,
+    num_sims: int,
+    num_tests: int,
+    t_values: list[float]
+):
+    """
+    For each L in L_values, compute the average fitted prefactor A for both
+    <X> (moment_type='first') and <X^2> (moment_type='second'), in parallel.
+    Then plot A vs L on linear (left) and log-log (right) scales.
+    """
+    # Prepare argument tuples for pool
+    args_first  = [(L, alpha, F, num_sims, num_tests, t_values, 'first')  for L in L_values]
+    args_second = [(L, alpha, F, num_sims, num_tests, t_values, 'second') for L in L_values]
+    
+    with mp.Pool(mp.cpu_count()) as pool:
+        A_first_list  = pool.starmap(compute_mean_A_for_L, args_first)
+        A_second_list = pool.starmap(compute_mean_A_for_L, args_second)
+    
+    # Plot
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    
+    # Linear scale
+    axes[0].plot(L_values,   A_first_list,  'o-', label=r'$⟨X⟩$ prefactor')
+    axes[0].plot(L_values,   A_second_list, 's-', label=r'$⟨X^2⟩$ prefactor')
+    axes[0].set_xlabel('L (Ly = Lz)')
+    axes[0].set_ylabel('Fitted prefactor A')
+    axes[0].set_title('A vs L (linear scale)')
+    axes[0].legend()
+    axes[0].grid(True)
+    
+    # Log–log scale
+    axes[1].loglog(L_values,   A_first_list,  'o-', label=r'$⟨X⟩$ prefactor')
+    axes[1].loglog(L_values,   A_second_list, 's-', label=r'$⟨X^2⟩$ prefactor')
+    axes[1].set_xlabel('L (Ly = Lz)')
+    axes[1].set_ylabel('Fitted prefactor A')
+    axes[1].set_title('A vs L (log–log scale)')
+    axes[1].legend()
+    axes[1].grid(True, which='both', ls='--', alpha=0.6)
+    
+    plt.tight_layout()
+    plt.show()
+
+# !!!
 
 
 
@@ -460,8 +566,8 @@ def plot_msd_vs_time_S_alpha(t_values: list[float], alpha: float, F: float, Ly: 
 def main():
 
     ALPHA = 0.5
-    FORCE = 0.5
-    NUM_SIMS = 100_000
+    FORCE = 0.1
+    NUM_SIMS = 5_000
     WIDTH = 30
     HIGHT = 30
 
@@ -472,7 +578,10 @@ def main():
         print("3. Run Multiple Trajectories & Plot Final Position Histograms")
         print("4. Plot Mean Final Position vs. Target Time")
         print("5. Plot MSD (Mean Squared Displacement) vs. Target Time")
-        print("6. Exit")
+        print("6. Plot A vs L (Fitted Prefactor)")
+
+
+        print("9. Exit")
         
         choice = input("Enter your choice (1-6): ").strip()
         
@@ -520,6 +629,17 @@ def main():
             plot_msd_vs_time_S_alpha(t_values, alpha, F, Ly, Lz, num_sims)
 
         elif choice == '6':
+            L_vals    = np.arange(10, 101, 10)  # e.g. L = 10,20,…,100
+            alpha     = ALPHA
+            F         = FORCE
+            num_sims  = NUM_SIMS
+            num_tests = 10
+            t_vals    = np.logspace(1, 3, 8)   # eight t’s from 10 to 1000
+
+            plot_A_vs_L(L_vals, alpha, F, num_sims, num_tests, t_vals)
+
+
+        elif choice == '9':
             print("Exiting...")
             break
         else:
