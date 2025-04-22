@@ -620,7 +620,7 @@ def main():
 
         elif choice == '5':
             print("Plotting MSD vs target time...")
-            t_values = np.logspace(1, 3, num=10)  # t values from 10 to 1000
+            t_values = np.logspace(1, 10, num=100)  # t values from 10 to 1000
             alpha = ALPHA
             F = FORCE
             Ly = WIDTH

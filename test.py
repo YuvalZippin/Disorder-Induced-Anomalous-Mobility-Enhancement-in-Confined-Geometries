@@ -454,180 +454,82 @@ def plot_msd_vs_time_S_alpha(t_values: list[float], alpha: float, F: float, Ly: 
     plt.tight_layout()
     plt.show()
 
+# !!!
 
 
-import numpy as np
-import time
-import multiprocessing as mp
-import matplotlib.pyplot as plt
-from scipy.optimize import curve_fit
 
-# -------------------------------
-# 1) Mathematical helpers
-# -------------------------------
+#? Main function to run the program:
+def main():
 
-def power_law(x, A, beta):
-    return A * x**beta
+    ALPHA = 0.5
+    FORCE = 0.1
+    NUM_SIMS = 5_000
+    WIDTH = 30
+    HIGHT = 30
 
-# -------------------------------
-# 2) Your existing simulation core
-#    (assumes run_single_trajectory is defined elsewhere,
-#     optimized with Numba/Cython if you choose)
-# -------------------------------
+    while True:
+        print("\nMenu:")
+        print("1. Validate eta generation (Plot Histogram vs PDF for alpha=0.5)")
+        print("2. Run and Plot Single Trajectory")
+        print("3. Run Multiple Trajectories & Plot Final Position Histograms")
+        print("4. Plot Mean Final Position vs. Target Time")
+        print("5. Plot MSD (Mean Squared Displacement) vs. Target Time")
+        print("6. Plot A vs L (Fitted Prefactor)")
 
-# from numba import njit
-# @njit
-# def run_single_trajectory(...):
-#     ...  # your fast, JIT‑compiled loop here
 
-# Placeholder import or definition
-# from your_sim_module import run_single_trajectory
+        print("9. Exit")
+        
+        choice = input("Enter your choice (1-6): ").strip()
+        
+        if choice == '1':
+            run_eta_validation_plot()
 
-# -------------------------------
-# 3) Prefactor‐fitting routines
-# -------------------------------
+        elif choice == '2':
+            print("Running and plotting a single trajectory...")
+            t = 100.0
+            alpha = ALPHA
+            F = FORCE
+            Ly = WIDTH
+            Lz = HIGHT
+            trajectory = run_single_trajectory(t, alpha, F, Ly, Lz)
+            plot_trajectory_3d(trajectory)
 
-def calculate_fitted_A(
-    t_values: list[float],
-    alpha: float,
-    F: float,
-    L: int,
-    num_sims: int,
-    moment_type: str
-) -> float:
-    """
-    For each t in t_values, run num_sims trajectories in an L×L system,
-    extract final X or X^2, average them, then fit A*t^beta → return A.
-    """
-    means = np.empty(len(t_values), dtype=float)
-    for i, t in enumerate(t_values):
-        # vectorized inner loop would be ideal (e.g. via Numba)
-        vals = np.empty(num_sims, dtype=float)
-        for j in range(num_sims):
-            traj = run_single_trajectory(t, alpha, F, L, L)
-            x = traj[-1][0]
-            vals[j] = x if moment_type=='first' else x*x
-        means[i] = vals.mean()
-    # fit on abs to avoid sign issues
-    y = np.abs(means)
-    try:
-        popt, _ = curve_fit(power_law, t_values, y, maxfev=10_000)
-        return popt[0]
-    except Exception as e:
-        print(f"  [L={L}, moment={moment_type}] fit failed: {e}")
-        return np.nan
+        elif choice == '3':
+            print("Running multiple trajectories for final position histograms...")
+            t = 100.0
+            alpha = ALPHA
+            F = FORCE
+            Ly = WIDTH
+            Lz = HIGHT
+            num_trials = NUM_SIMS
+            run_multiple_and_plot_final_histograms(t, alpha, F, Ly, Lz, num_trials)
 
-def compute_mean_A_for_L(
-    L: int,
-    alpha: float,
-    F: float,
-    num_sims: int,
-    num_tests: int,
-    t_values: list[float],
-    moment_type: str
-) -> float:
-    """
-    Repeat calculate_fitted_A num_tests times and return the average A.
-    """
-    A_list = []
-    for _ in range(num_tests):
-        A = calculate_fitted_A(t_values, alpha, F, L, num_sims, moment_type)
-        if not np.isnan(A):
-            A_list.append(A)
-    return float(np.mean(A_list)) if A_list else np.nan
+        elif choice == '4':
+            print("Plotting mean final position vs target time...")
+            t_values = np.logspace(1, 3, num=10)  # e.g., t from 10 to 1000
+            alpha = ALPHA
+            F = FORCE
+            Ly = WIDTH
+            Lz = HIGHT
+            num_sims = NUM_SIMS
+            plot_mean_moment_vs_time_S_alpha(t_values, alpha, F, Ly, Lz, num_sims)
 
-def plot_A_vs_L(
-    L_values: list[int],
-    alpha: float,
-    F: float,
-    num_sims: int,
-    num_tests: int,
-    t_values: list[float]
-):
-    """
-    Parallelized sweep over L_values: compute A for <X> and <X^2>,
-    then plot on linear and log–log axes.
-    """
-    args_first  = [(L, alpha, F, num_sims, num_tests, t_values, 'first')  for L in L_values]
-    args_second = [(L, alpha, F, num_sims, num_tests, t_values, 'second') for L in L_values]
+        elif choice == '5':
+            print("Plotting MSD vs target time...")
+            t_values = np.logspace(1, 10, num=100)  # t values from 10 to 1000
+            alpha = ALPHA
+            F = FORCE
+            Ly = WIDTH
+            Lz = HIGHT
+            num_sims = NUM_SIMS
+            plot_msd_vs_time_S_alpha(t_values, alpha, F, Ly, Lz, num_sims)
 
-    with mp.Pool(mp.cpu_count()) as pool:
-        A_first_list  = pool.starmap(compute_mean_A_for_L, args_first)
-        A_second_list = pool.starmap(compute_mean_A_for_L, args_second)
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
-
-    # Linear plot
-    ax1.plot(L_values,   A_first_list,  'o-', label=r'$⟨X⟩$ prefactor')
-    ax1.plot(L_values,   A_second_list, 's-', label=r'$⟨X^2⟩$ prefactor')
-    ax1.set(title='A vs L (linear)', xlabel='L (Ly=Lz)', ylabel='A')
-    ax1.legend(); ax1.grid(True)
-
-    # Log–log plot
-    ax2.loglog(L_values,   A_first_list,  'o-', label=r'$⟨X⟩$ prefactor')
-    ax2.loglog(L_values,   A_second_list, 's-', label=r'$⟨X^2⟩$ prefactor')
-    ax2.set(title='A vs L (log–log)', xlabel='L (Ly=Lz)', ylabel='A')
-    ax2.legend(); ax2.grid(True, which='both', ls='--', alpha=0.6)
-
-    plt.tight_layout()
-    plt.show()
-
-# -------------------------------
-# 4) Runtime estimator
-# -------------------------------
-
-def estimate_total_time(
-    L_values: list[int],
-    alpha: float,
-    F: float,
-    num_sims: int,
-    num_tests: int,
-    t_values: list[float]
-) -> float:
-    """
-    Time a single compute_mean_A_for_L job and scale up to full sweep.
-    """
-    n_cores = mp.cpu_count()
-    sample_args = (L_values[0], alpha, F, num_sims, num_tests, t_values, 'first')
-    start = time.time()
-    compute_mean_A_for_L(*sample_args)
-    elapsed = time.time() - start
-
-    total_tasks = len(L_values) * 2  # two moment types
-    est = elapsed * (total_tasks / n_cores)
-    print(f"Single‐task time: {elapsed:.1f}s")
-    print(f"Estimated total (on {n_cores} cores): {est:.0f}s ≈ {est/60:.1f} min")
-    return est
-
-# -------------------------------
-# 5) Performance Tips (in‐code comments)
-# -------------------------------
-#
-#  • JIT compile `run_single_trajectory` with Numba: 
-#      @njit(parallel=True) 
-#      def run_single_trajectory(...):
-#
-#  • Vectorize the inner loop over num_sims (e.g., generate all η and step‐counts at once).
-#
-#  • If Python‐pool overhead is still high, consider batch sizes >1 task per worker.
-#
-#  • Profile with cProfile to pinpoint hotspots.
-#
-# -------------------------------
-# 6) Example usage
-# -------------------------------
+        elif choice == '9':
+            print("Exiting...")
+            break
+        else:
+            print("Invalid choice. Please enter a number between 1 and 6.")
 
 if __name__ == "__main__":
-    # Define sweep parameters
-    L_vals    = list(range(10, 101, 10))       # L = 10,20,...,100
-    alpha     = 0.5
-    F         = 0.1
-    num_sims  = 5_000
-    num_tests = 1_000
-    t_vals    = np.logspace(1, 3, 8)           # t = 10, ~1000
-
-    # Estimate runtime before running full sweep
-    estimate_total_time(L_vals, alpha, F, num_sims, num_tests, t_vals)
-
-    # Run and plot
-    plot_A_vs_L(L_vals, alpha, F, num_sims, num_tests, t_vals)
+    main()
