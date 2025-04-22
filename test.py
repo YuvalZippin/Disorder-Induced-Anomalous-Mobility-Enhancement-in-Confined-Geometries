@@ -1,0 +1,633 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D 
+from scipy.optimize import curve_fit
+import multiprocessing as mp
+
+#? Mathematical functions:
+def generate_eta(alpha: float) -> float:
+    """
+    Generate one-sided Lévy stable random variable η using the Chambers et al. method.
+    """
+    theta = np.pi * np.random.uniform(0, 1)  # θ ~ U(0, π)
+    W = -np.log(np.random.uniform(0, 1))  # W = -ln(U), U ~ U(0,1)
+    a_theta = (
+        np.sin((1 - alpha) * theta)
+        * (np.sin(alpha * theta) ** (alpha / (1 - alpha)))
+        / (np.sin(theta) ** (1 / (1 - alpha)))
+    )
+    eta = (a_theta / W) ** ((1 - alpha) / alpha)
+    return eta
+
+def compute_S_alpha(t: float, alpha: float) -> float:
+    """
+    Compute the hitting target S_α for a given time t and stability parameter alpha.
+    """
+    eta = generate_eta(alpha)
+    S_alpha = (t / eta) ** alpha
+    return S_alpha
+
+def levy_pdf_alpha_half(x):
+    """
+    Compute the theoretical Lévy PDF for α = 1/2 as a function of x.
+    """
+    pdf = np.zeros_like(x)
+    positive = x > 0
+    pdf[positive] = (1.0 / (2.0 * np.sqrt(np.pi))) * (x[positive] ** -1.5) * np.exp(-1.0 / (4.0 * x[positive]))
+    return pdf
+
+def power_law(x, A, beta):
+    return A * x**beta
+
+
+#? Simulation functions:
+def run_eta_validation_plot(alpha: float = 0.5, N_samples: int = 100_000, hist_range=(0.001, 25.0), num_bins=200):
+    """
+    Run validation of generate_eta by comparing histogram of samples to theoretical PDF.
+    """
+    print(f"\nGenerating {N_samples} samples with α = {alpha}...")
+    np.random.seed(42)  # For reproducibility
+    samples = np.array([generate_eta(alpha) for _ in range(N_samples)])
+    counts, bins = np.histogram(samples, bins=num_bins, range=hist_range, density=True)
+    bin_centers = 0.5 * (bins[1:] + bins[:-1])
+    x_vals = np.linspace(hist_range[0], hist_range[1], 1000)
+    pdf_vals = levy_pdf_alpha_half(x_vals)
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(x_vals, pdf_vals, 'r-', label="Theoretical Lévy PDF (α=0.5)", linewidth=2)
+    plt.bar(bin_centers, counts, width=(bins[1] - bins[0]), alpha=0.6, label="Generated η Histogram", color='skyblue', edgecolor='k')
+    plt.title("Validation of Lévy Stable Sampling (α=0.5)")
+    plt.xlabel("η")
+    plt.ylabel("Probability Density")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+# !!!
+
+def run_single_trajectory(t: float, alpha: float, F: float, Ly: int, Lz: int) -> list[tuple[int, int, int]]:
+    """
+    Simulate a single 3D biased random walk with periodic boundary conditions in y and z.
+    
+    The walk stops when the number of steps reaches or exceeds the operational time S_α,
+    computed via compute_S_alpha(t, alpha). The x-direction is infinite while y and z are
+    periodic with system sizes Ly and Lz, respectively.
+    
+    Parameters:
+        t (float): Laboratory time.
+        alpha (float): Stability parameter for the Lévy distribution.
+        F (float): External field strength (bias in the x-direction).
+        Ly (int): System size in the y-direction (allowed positions: 0 to Ly-1).
+        Lz (int): System size in the z-direction (allowed positions: 0 to Lz-1).
+    
+    Returns:
+        trajectory (list of tuples): The complete trajectory of the particle.
+                                     Each element is a tuple (x, y, z) representing
+                                     the position after each step (including the initial position).
+    """
+    S_alpha = compute_S_alpha(t, alpha)
+    
+    # Handle non-finite S_alpha (if eta was near zero)
+    if not np.isfinite(S_alpha):
+         print(f"Warning: S_alpha is non-finite ({S_alpha}). Returning only initial position.")
+         return [(0, 0, 0)]
+    
+    pos = [0, 0, 0]
+    trajectory = [tuple(pos)]
+    n_steps = 0
+    exp_F2 = np.exp(F / 2)
+    exp_negF2 = np.exp(-F / 2)
+    A = 4 + exp_F2 + exp_negF2
+    
+    if A == 0: 
+        print("Error: Normalization constant A is zero.")
+        return trajectory
+
+    probs = [exp_F2/A, exp_negF2/A, 1/A, 1/A, 1/A, 1/A]
+    cum_probs = np.cumsum(probs)
+    target_steps = S_alpha
+
+    while n_steps < target_steps:
+        r = np.random.rand()
+        if r < cum_probs[0]:
+            pos[0] += 1
+        elif r < cum_probs[1]:
+            pos[0] -= 1
+        elif r < cum_probs[2]:
+            pos[1] += 1
+        elif r < cum_probs[3]:
+            pos[1] -= 1
+        elif r < cum_probs[4]:
+            pos[2] += 1
+        else:
+            pos[2] -= 1
+        
+        pos[1] %= Ly
+        pos[2] %= Lz
+        
+        n_steps += 1
+        trajectory.append(tuple(pos))
+            
+    return trajectory
+
+# !!!
+
+def plot_trajectory_3d(trajectory: list[tuple[int, int, int]]) -> None:
+    """
+    Plot a 3D particle trajectory.
+    
+    Parameters:
+        trajectory (list of tuples): Full trajectory with each tuple (x, y, z).
+    """
+    xs = [pos[0] for pos in trajectory]
+    ys = [pos[1] for pos in trajectory]
+    zs = [pos[2] for pos in trajectory]
+    
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111, projection='3d')
+    
+    ax.plot(xs, ys, zs, label="Trajectory", color='blue', linewidth=1)
+    ax.scatter(xs[0], ys[0], zs[0], color='green', s=50, label='Start')
+    ax.scatter(xs[-1], ys[-1], zs[-1], color='red', s=50, marker='s', label='End')
+    
+    ax.set_xlabel('X coordinate')
+    ax.set_ylabel('Y coordinate')
+    ax.set_zlabel('Z coordinate')
+    ax.set_title('3D Particle Trajectory')
+    ax.legend()
+    plt.show()
+
+# !!!
+
+def run_multiple_and_plot_final_histograms(
+    t: float,
+    alpha: float,
+    F: float,
+    Ly: int,
+    Lz: int,
+    num_trials: int
+) -> None:
+    """
+    Run multiple random walk simulations and plot histograms of final positions.
+
+    Parameters:
+        t (float): Target time.
+        alpha (float): Stability parameter.
+        F (float): Bias force in the x-direction.
+        Ly (int): System size in Y with periodic boundary conditions.
+        Lz (int): System size in Z with periodic boundary conditions.
+        num_trials (int): Number of independent simulations to run.
+    """
+    final_x, final_y, final_z = [], [], []
+
+    for i in range(num_trials):
+        traj = run_single_trajectory(t, alpha, F, Ly, Lz)
+        x, y, z = traj[-1]
+        final_x.append(x)
+        final_y.append(y)
+        final_z.append(z)
+
+    # Plot histograms
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+
+    axes[0].hist(final_x, bins=50, density=True, color='skyblue', edgecolor='black')
+    axes[0].set_title("Final X Positions")
+    axes[0].set_xlabel("x")
+    axes[0].set_ylabel("Probability Density")
+
+    axes[1].hist(final_y, bins=Ly, range=(0, Ly), density=True, color='salmon', edgecolor='black')
+    axes[1].set_title("Final Y Positions")
+    axes[1].set_xlabel("y")
+    axes[1].set_ylabel("Probability Density")
+
+    axes[2].hist(final_z, bins=Lz, range=(0, Lz), density=True, color='lightgreen', edgecolor='black')
+    axes[2].set_title("Final Z Positions")
+    axes[2].set_xlabel("z")
+    axes[2].set_ylabel("Probability Density")
+
+    plt.suptitle(f"Final Position Histograms over {num_trials} Simulations")
+    plt.tight_layout()
+    plt.show()
+
+# !!!
+
+def calculate_mean_final_position(t: float, alpha: float, F: float, Ly: int, Lz: int, num_sims: int) -> tuple[float, float, float]:
+    """
+    Run multiple 3D random walk simulations and compute the average final position.
+    
+    Parameters:
+        t (float): Target laboratory time used to compute S_alpha.
+        alpha (float): Stability parameter for the Lévy distribution.
+        F (float): Bias force in the x-direction.
+        Ly (int): System size in y (with periodic boundary conditions).
+        Lz (int): System size in z (with periodic boundary conditions).
+        num_sims (int): Number of independent simulations to run.
+    
+    Returns:
+        (mean_x, mean_y, mean_z): Average final x, y, z positions over all simulations.
+    """
+    sum_x, sum_y, sum_z = 0.0, 0.0, 0.0
+    
+    for i in range(num_sims):
+        trajectory = run_single_trajectory(t, alpha, F, Ly, Lz)
+        final_pos = trajectory[-1]
+        x, y, z = final_pos
+        sum_x += x
+        sum_y += y
+        sum_z += z
+        
+    mean_x = sum_x / num_sims
+    mean_y = sum_y / num_sims
+    mean_z = sum_z / num_sims
+    
+    return mean_x, mean_y, mean_z
+
+# !!!
+
+def plot_mean_moment_vs_time_S_alpha(t_values: list[float], alpha: float, F: float, Ly: int, Lz: int, num_sims: int) -> None:
+    """
+    For a range of target times, compute the mean final position from multiple 
+    simulations, fit a power law g(t)=A*t^beta to the data, and plot the first moment 
+    (<X>, <Y>, <Z>) versus target time t on a log-log scale.
+
+    Parameters:
+        t_values (list of float): List or array of target times.
+        alpha (float): Stability parameter for the Lévy distribution.
+        F (float): Bias force in the x-direction.
+        Ly (int): System size in y (with periodic boundary conditions).
+        Lz (int): System size in z (with periodic boundary conditions).
+        num_sims (int): Number of simulations per target time.
+    """
+    mean_x_vals = []
+    mean_y_vals = []
+    mean_z_vals = []
+    
+    # Loop over target times and collect mean final positions.
+    for t in t_values:
+        mean_x, mean_y, mean_z = calculate_mean_final_position(t, alpha, F, Ly, Lz, num_sims)
+        mean_x_vals.append(mean_x)
+        mean_y_vals.append(mean_y)
+        mean_z_vals.append(mean_z)
+    
+    t_array = np.array(t_values)
+    mean_x_vals = np.array(mean_x_vals)
+    mean_y_vals = np.array(mean_y_vals)
+    mean_z_vals = np.array(mean_z_vals)
+    
+    # Perform curve fitting for X using the raw data.
+    try:
+        popt_x, _ = curve_fit(power_law, t_array, mean_x_vals, maxfev=10000)
+        A_x, beta_x = popt_x
+        fitted_x = power_law(t_array, A_x, beta_x)
+        print(f"Fit for <X>: A = {A_x:.3e}, beta = {beta_x:.3f}")
+    except Exception as e:
+        print("Fit for <X> failed:", e)
+        A_x, beta_x = None, None
+        fitted_x = None
+
+    # For Y and Z, fit the absolute values in case they are near zero.
+    try:
+        popt_y, _ = curve_fit(power_law, t_array, np.abs(mean_y_vals), maxfev=10000)
+        A_y, beta_y = popt_y
+        fitted_y = power_law(t_array, A_y, beta_y)
+        print(f"Fit for <Y> (abs): A = {A_y:.3e}, beta = {beta_y:.3f}")
+    except Exception as e:
+        print("Fit for <Y> failed:", e)
+        A_y, beta_y = None, None
+        fitted_y = None
+
+    try:
+        popt_z, _ = curve_fit(power_law, t_array, np.abs(mean_z_vals), maxfev=10000)
+        A_z, beta_z = popt_z
+        fitted_z = power_law(t_array, A_z, beta_z)
+        print(f"Fit for <Z> (abs): A = {A_z:.3e}, beta = {beta_z:.3f}")
+    except Exception as e:
+        print("Fit for <Z> failed:", e)
+        A_z, beta_z = None, None
+        fitted_z = None
+
+    # Generate the log-log plot.
+    plt.figure(figsize=(10, 6))
+    plt.loglog(t_array, mean_x_vals, 'o', color='blue', label='<X> simulation')
+    plt.loglog(t_array, np.abs(mean_y_vals), 's', color='red', label='<Y> simulation (abs)')
+    plt.loglog(t_array, np.abs(mean_z_vals), '^', color='green', label='<Z> simulation (abs)')
+    
+    # Overlay fitted curves if available.
+    if fitted_x is not None:
+        plt.loglog(t_array, fitted_x, '-', color='blue',
+                   label=f'<X> fit (β≈{beta_x:.2f})')
+    if fitted_y is not None:
+        plt.loglog(t_array, fitted_y, '-', color='red',
+                   label=f'<Y> fit (β≈{beta_y:.2f})')
+    if fitted_z is not None:
+        plt.loglog(t_array, fitted_z, '-', color='green',
+                   label=f'<Z> fit (β≈{beta_z:.2f})')
+    
+    plt.xlabel("Target Time t")
+    plt.ylabel("Mean Final Position (absolute for Y and Z)")
+    plt.title("Mean Final Position vs. Target Time t (Power-law Fit)")
+    plt.legend()
+    plt.grid(True, which="both", ls="--", alpha=0.6)
+    plt.tight_layout()
+    plt.show()
+
+# !!!
+
+def calculate_mean_squared_displacement(t: float, alpha: float, F: float, Ly: int, Lz: int, num_sims: int) -> tuple[float, float, float]:
+    """
+    Run multiple simulations and compute the Mean Squared Displacement (MSD) components.
+    
+    Parameters:
+        t (float): Target time.
+        alpha (float): Stability parameter.
+        F (float): Bias in the x-direction.
+        Ly (int): System size in Y.
+        Lz (int): System size in Z.
+        num_sims (int): Number of simulations.
+    
+    Returns:
+        (mean_x_sq, mean_y_sq, mean_z_sq): Mean of the squared final positions in x, y, z.
+    """
+    sum_x2, sum_y2, sum_z2 = 0.0, 0.0, 0.0
+    valid_runs = 0
+    
+    for _ in range(num_sims):
+        traj = run_single_trajectory(t, alpha, F, Ly, Lz)
+        # If trajectory is empty or invalid, skip.
+        if not traj:
+            continue
+        x, y, z = traj[-1]
+        sum_x2 += x**2
+        sum_y2 += y**2
+        sum_z2 += z**2
+        valid_runs += 1
+    
+    if valid_runs == 0:
+        return float('nan'), float('nan'), float('nan')
+    
+    mean_x_sq = sum_x2 / valid_runs
+    mean_y_sq = sum_y2 / valid_runs
+    mean_z_sq = sum_z2 / valid_runs
+    
+    return mean_x_sq, mean_y_sq, mean_z_sq
+
+# !!!
+
+def plot_msd_vs_time_S_alpha(t_values: list[float], alpha: float, F: float, Ly: int, Lz: int, num_sims: int) -> None:
+    """
+    Compute the MSD components (<X^2>, <Y^2>, <Z^2>) over a range of target times and plot them
+    on a log-log scale. Also perform a power-law fit g(t) = A*t^beta for each component.
+    
+    Parameters:
+        t_values (list of float): List/array of target times.
+        alpha (float): Stability parameter.
+        F (float): Bias force in the x-direction.
+        Ly (int): System size in Y.
+        Lz (int): System size in Z.
+        num_sims (int): Number of simulations per target time.
+    """
+    mean_x2_vals = []
+    mean_y2_vals = []
+    mean_z2_vals = []
+    
+    for t in t_values:
+        mean_x2, mean_y2, mean_z2 = calculate_mean_squared_displacement(t, alpha, F, Ly, Lz, num_sims)
+        mean_x2_vals.append(mean_x2)
+        mean_y2_vals.append(mean_y2)
+        mean_z2_vals.append(mean_z2)
+    
+    t_arr = np.array(t_values)
+    mean_x2_arr = np.array(mean_x2_vals)
+    mean_y2_arr = np.array(mean_y2_vals)
+    mean_z2_arr = np.array(mean_z2_vals)
+    
+    # Perform power-law fits on each MSD component.
+    try:
+        popt_x2, _ = curve_fit(power_law, t_arr, mean_x2_arr, maxfev=10000)
+        A_x2, beta_x2 = popt_x2
+        fitted_x2 = power_law(t_arr, A_x2, beta_x2)
+        print(f"MSD <X^2> fit: A = {A_x2:.3e}, beta = {beta_x2:.3f}")
+    except Exception as e:
+        print("Fit for MSD <X^2> failed:", e)
+        A_x2, beta_x2 = None, None
+        fitted_x2 = None
+
+    try:
+        popt_y2, _ = curve_fit(power_law, t_arr, mean_y2_arr, maxfev=10000)
+        A_y2, beta_y2 = popt_y2
+        fitted_y2 = power_law(t_arr, A_y2, beta_y2)
+        print(f"MSD <Y^2> fit: A = {A_y2:.3e}, beta = {beta_y2:.3f}")
+    except Exception as e:
+        print("Fit for MSD <Y^2> failed:", e)
+        A_y2, beta_y2 = None, None
+        fitted_y2 = None
+
+    try:
+        popt_z2, _ = curve_fit(power_law, t_arr, mean_z2_arr, maxfev=10000)
+        A_z2, beta_z2 = popt_z2
+        fitted_z2 = power_law(t_arr, A_z2, beta_z2)
+        print(f"MSD <Z^2> fit: A = {A_z2:.3e}, beta = {beta_z2:.3f}")
+    except Exception as e:
+        print("Fit for MSD <Z^2> failed:", e)
+        A_z2, beta_z2 = None, None
+        fitted_z2 = None
+
+    # Plot the data and fitted curves on a log-log plot.
+    plt.figure(figsize=(10, 6))
+    plt.loglog(t_arr, mean_x2_arr, 'o', color='blue', label='MSD <X^2> data')
+    plt.loglog(t_arr, mean_y2_arr, 's', color='red', label='MSD <Y^2> data')
+    plt.loglog(t_arr, mean_z2_arr, '^', color='green', label='MSD <Z^2> data')
+    
+    if fitted_x2 is not None:
+        plt.loglog(t_arr, fitted_x2, '-', color='blue', label=f'<X^2> fit (β≈{beta_x2:.2f})')
+    if fitted_y2 is not None:
+        plt.loglog(t_arr, fitted_y2, '-', color='red', label=f'<Y^2> fit (β≈{beta_y2:.2f})')
+    if fitted_z2 is not None:
+        plt.loglog(t_arr, fitted_z2, '-', color='green', label=f'<Z^2> fit (β≈{beta_z2:.2f})')
+    
+    plt.xlabel("Target Time t")
+    plt.ylabel("MSD Component")
+    plt.title("MSD Components vs. Target Time t (Power-law Fit)")
+    plt.legend()
+    plt.grid(True, which="both", ls="--", alpha=0.6)
+    plt.tight_layout()
+    plt.show()
+
+
+
+import numpy as np
+import time
+import multiprocessing as mp
+import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
+
+# -------------------------------
+# 1) Mathematical helpers
+# -------------------------------
+
+def power_law(x, A, beta):
+    return A * x**beta
+
+# -------------------------------
+# 2) Your existing simulation core
+#    (assumes run_single_trajectory is defined elsewhere,
+#     optimized with Numba/Cython if you choose)
+# -------------------------------
+
+# from numba import njit
+# @njit
+# def run_single_trajectory(...):
+#     ...  # your fast, JIT‑compiled loop here
+
+# Placeholder import or definition
+# from your_sim_module import run_single_trajectory
+
+# -------------------------------
+# 3) Prefactor‐fitting routines
+# -------------------------------
+
+def calculate_fitted_A(
+    t_values: list[float],
+    alpha: float,
+    F: float,
+    L: int,
+    num_sims: int,
+    moment_type: str
+) -> float:
+    """
+    For each t in t_values, run num_sims trajectories in an L×L system,
+    extract final X or X^2, average them, then fit A*t^beta → return A.
+    """
+    means = np.empty(len(t_values), dtype=float)
+    for i, t in enumerate(t_values):
+        # vectorized inner loop would be ideal (e.g. via Numba)
+        vals = np.empty(num_sims, dtype=float)
+        for j in range(num_sims):
+            traj = run_single_trajectory(t, alpha, F, L, L)
+            x = traj[-1][0]
+            vals[j] = x if moment_type=='first' else x*x
+        means[i] = vals.mean()
+    # fit on abs to avoid sign issues
+    y = np.abs(means)
+    try:
+        popt, _ = curve_fit(power_law, t_values, y, maxfev=10_000)
+        return popt[0]
+    except Exception as e:
+        print(f"  [L={L}, moment={moment_type}] fit failed: {e}")
+        return np.nan
+
+def compute_mean_A_for_L(
+    L: int,
+    alpha: float,
+    F: float,
+    num_sims: int,
+    num_tests: int,
+    t_values: list[float],
+    moment_type: str
+) -> float:
+    """
+    Repeat calculate_fitted_A num_tests times and return the average A.
+    """
+    A_list = []
+    for _ in range(num_tests):
+        A = calculate_fitted_A(t_values, alpha, F, L, num_sims, moment_type)
+        if not np.isnan(A):
+            A_list.append(A)
+    return float(np.mean(A_list)) if A_list else np.nan
+
+def plot_A_vs_L(
+    L_values: list[int],
+    alpha: float,
+    F: float,
+    num_sims: int,
+    num_tests: int,
+    t_values: list[float]
+):
+    """
+    Parallelized sweep over L_values: compute A for <X> and <X^2>,
+    then plot on linear and log–log axes.
+    """
+    args_first  = [(L, alpha, F, num_sims, num_tests, t_values, 'first')  for L in L_values]
+    args_second = [(L, alpha, F, num_sims, num_tests, t_values, 'second') for L in L_values]
+
+    with mp.Pool(mp.cpu_count()) as pool:
+        A_first_list  = pool.starmap(compute_mean_A_for_L, args_first)
+        A_second_list = pool.starmap(compute_mean_A_for_L, args_second)
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+
+    # Linear plot
+    ax1.plot(L_values,   A_first_list,  'o-', label=r'$⟨X⟩$ prefactor')
+    ax1.plot(L_values,   A_second_list, 's-', label=r'$⟨X^2⟩$ prefactor')
+    ax1.set(title='A vs L (linear)', xlabel='L (Ly=Lz)', ylabel='A')
+    ax1.legend(); ax1.grid(True)
+
+    # Log–log plot
+    ax2.loglog(L_values,   A_first_list,  'o-', label=r'$⟨X⟩$ prefactor')
+    ax2.loglog(L_values,   A_second_list, 's-', label=r'$⟨X^2⟩$ prefactor')
+    ax2.set(title='A vs L (log–log)', xlabel='L (Ly=Lz)', ylabel='A')
+    ax2.legend(); ax2.grid(True, which='both', ls='--', alpha=0.6)
+
+    plt.tight_layout()
+    plt.show()
+
+# -------------------------------
+# 4) Runtime estimator
+# -------------------------------
+
+def estimate_total_time(
+    L_values: list[int],
+    alpha: float,
+    F: float,
+    num_sims: int,
+    num_tests: int,
+    t_values: list[float]
+) -> float:
+    """
+    Time a single compute_mean_A_for_L job and scale up to full sweep.
+    """
+    n_cores = mp.cpu_count()
+    sample_args = (L_values[0], alpha, F, num_sims, num_tests, t_values, 'first')
+    start = time.time()
+    compute_mean_A_for_L(*sample_args)
+    elapsed = time.time() - start
+
+    total_tasks = len(L_values) * 2  # two moment types
+    est = elapsed * (total_tasks / n_cores)
+    print(f"Single‐task time: {elapsed:.1f}s")
+    print(f"Estimated total (on {n_cores} cores): {est:.0f}s ≈ {est/60:.1f} min")
+    return est
+
+# -------------------------------
+# 5) Performance Tips (in‐code comments)
+# -------------------------------
+#
+#  • JIT compile `run_single_trajectory` with Numba: 
+#      @njit(parallel=True) 
+#      def run_single_trajectory(...):
+#
+#  • Vectorize the inner loop over num_sims (e.g., generate all η and step‐counts at once).
+#
+#  • If Python‐pool overhead is still high, consider batch sizes >1 task per worker.
+#
+#  • Profile with cProfile to pinpoint hotspots.
+#
+# -------------------------------
+# 6) Example usage
+# -------------------------------
+
+if __name__ == "__main__":
+    # Define sweep parameters
+    L_vals    = list(range(10, 101, 10))       # L = 10,20,...,100
+    alpha     = 0.5
+    F         = 0.1
+    num_sims  = 5_000
+    num_tests = 1_000
+    t_vals    = np.logspace(1, 3, 8)           # t = 10, ~1000
+
+    # Estimate runtime before running full sweep
+    estimate_total_time(L_vals, alpha, F, num_sims, num_tests, t_vals)
+
+    # Run and plot
+    plot_A_vs_L(L_vals, alpha, F, num_sims, num_tests, t_vals)
