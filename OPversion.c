@@ -1,133 +1,98 @@
-#include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
+#include <omp.h>
 #include <time.h>
 
-typedef struct {
-    int x, y, z;
-} Position;
+// Define M_PI if not already defined
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
-typedef struct {
-    Position *data;
-    size_t size;
-    size_t capacity;
-} Trajectory;
-
-// Initialize trajectory
-void init_trajectory(Trajectory *traj, size_t initial_capacity) {
-    traj->data = (Position *)malloc(initial_capacity * sizeof(Position));
-    traj->size = 0;
-    traj->capacity = initial_capacity;
+// Thread-safe RNG using rand_r
+static inline double uniform_rand_r(unsigned int *seed) {
+    return (double)rand_r(seed) / (double)RAND_MAX;
 }
 
-// Append to trajectory
-void append_trajectory(Trajectory *traj, int x, int y, int z) {
-    if (traj->size >= traj->capacity) {
-        traj->capacity *= 2;
-        traj->data = (Position *)realloc(traj->data, traj->capacity * sizeof(Position));
-    }
-    traj->data[traj->size++] = (Position){x, y, z};
-}
-
-// Free trajectory
-void free_trajectory(Trajectory *traj) {
-    free(traj->data);
-}
-
-// Uniform random number between 0 and 1
-static inline double uniform_rand() {
-    return (double)rand() / (double)RAND_MAX;
-}
-
-// Uniform random number between 0 and 1
-static inline double uniform_rand() {
-    return (double)rand() / (double)RAND_MAX;
-}
-
-// Generate one-sided Lévy stable random variable η using the Chambers et al. method
-double generate_eta(double alpha) {
-    const double PI = 3.141592653589793;
-    double theta = PI * uniform_rand();       // θ ~ U(0, π)
-    double W = -log(uniform_rand());          // W = -ln(U), U ~ U(0,1)
-
-    double sin_theta = sin(theta);
+// Generate one-sided Lévy stable random variable using Chambers method
+double generate_eta(double alpha, unsigned int *seed) {
+    double theta = M_PI * uniform_rand_r(seed);
+    double W = -log(uniform_rand_r(seed));
     double sin_alpha_theta = sin(alpha * theta);
-    double sin_1_alpha_theta = sin((1.0 - alpha) * theta);
+    double sin_one_minus_alpha_theta = sin((1 - alpha) * theta);
+    double sin_theta = sin(theta);
 
-    double numerator = sin_1_alpha_theta * pow(sin_alpha_theta, alpha / (1.0 - alpha));
-    double denominator = pow(sin_theta, 1.0 / (1.0 - alpha));
-    double a_theta = numerator / denominator;
+    double a_theta = sin_one_minus_alpha_theta *
+        pow(sin_alpha_theta, alpha / (1 - alpha)) /
+        pow(sin_theta, 1 / (1 - alpha));
 
-    double eta = pow(a_theta / W, (1.0 - alpha) / alpha);
-    return eta;
+    return pow(a_theta / W, (1 - alpha) / alpha);
 }
 
-// Compute S_alpha given laboratory time t and stability parameter alpha
-double compute_S_alpha(double t, double alpha) {
-    double eta = generate_eta(alpha);
-    double S_alpha = pow(t / eta, alpha);
-    return S_alpha;
-}
+// Batch simulation of N walkers using SIMD-friendly arrays
+void run_batch_walkers(
+    int N, double t, double alpha, double F,
+    int Ly, int Lz, int max_steps
+) {
+    // Allocate aligned memory
+    int *x = aligned_alloc(32, N * sizeof(int));
+    int *y = aligned_alloc(32, N * sizeof(int));
+    int *z = aligned_alloc(32, N * sizeof(int));
+    unsigned int *seeds = malloc(N * sizeof(unsigned int));
+    long *targets = malloc(N * sizeof(long));
 
-
-Trajectory run_single_trajectory(double t, double alpha, double F, int Ly, int Lz) {
-    Trajectory traj;
-    init_trajectory(&traj, 1000); // Start with capacity for 1000 steps
-
-    double S_alpha = compute_S_alpha(t, alpha);
-    if (!isfinite(S_alpha)) {
-        printf("Warning: S_alpha is non-finite (%f). Returning only initial position.\n", S_alpha);
-        append_trajectory(&traj, 0, 0, 0);
-        return traj;
+    // Initialize walkers
+    #pragma omp parallel for
+    for (int i = 0; i < N; i++) {
+        x[i] = y[i] = z[i] = 0;
+        seeds[i] = (unsigned int)(time(NULL) ^ (i + omp_get_thread_num()));
+        double eta = generate_eta(alpha, &seeds[i]);
+        targets[i] = (long)(pow(t / eta, alpha));
     }
 
-    int x = 0, y = 0, z = 0;
-    append_trajectory(&traj, x, y, z);
-
+    // Compute biased probabilities
     double exp_F2 = exp(F / 2.0);
     double exp_negF2 = exp(-F / 2.0);
     double A = 4.0 + exp_F2 + exp_negF2;
-    
-    if (A == 0.0) {
-        printf("Error: Normalization constant A is zero.\n");
-        return traj;
-    }
 
-    double probs[6] = {
-        exp_F2 / A,         // +X
-        exp_negF2 / A,      // -X
-        1.0 / A,            // +Y
-        1.0 / A,            // -Y
-        1.0 / A,            // +Z
-        1.0 / A             // -Z
+    double cum_probs[6] = {
+        exp_F2 / A,
+        (exp_F2 + exp_negF2) / A,
+        (exp_F2 + exp_negF2 + 1.0) / A,
+        (exp_F2 + exp_negF2 + 2.0) / A,
+        (exp_F2 + exp_negF2 + 3.0) / A,
+        1.0
     };
 
-    // Convert to cumulative probabilities for binary decision
-    for (int i = 1; i < 6; i++) {
-        probs[i] += probs[i - 1];
-    }
+    // Main simulation loop (batch update)
+    for (int step = 0; step < max_steps; step++) {
+        #pragma omp parallel for
+        for (int i = 0; i < N; i++) {
+            if (step >= targets[i]) continue;
 
-    long n_steps = 0;
-    long target_steps = (long)(S_alpha);
+            double r = uniform_rand_r(&seeds[i]);
 
-    while (n_steps < target_steps) {
-        double r = uniform_rand();
-        if (r < probs[0]) {
-            x += 1;
-        } else if (r < probs[1]) {
-            x -= 1;
-        } else if (r < probs[2]) {
-            y = (y + 1) % Ly;
-        } else if (r < probs[3]) {
-            y = (y - 1 + Ly) % Ly;
-        } else if (r < probs[4]) {
-            z = (z + 1) % Lz;
-        } else {
-            z = (z - 1 + Lz) % Lz;
+            if (r < cum_probs[0]) {
+                x[i]++;
+            } else if (r < cum_probs[1]) {
+                x[i]--;
+            } else if (r < cum_probs[2]) {
+                y[i] = (y[i] + 1) % Ly;
+            } else if (r < cum_probs[3]) {
+                y[i] = (y[i] - 1 + Ly) % Ly;
+            } else if (r < cum_probs[4]) {
+                z[i] = (z[i] + 1) % Lz;
+            } else {
+                z[i] = (z[i] - 1 + Lz) % Lz;
+            }
         }
-
-        append_trajectory(&traj, x, y, z);
-        n_steps++;
     }
 
-    return traj;
+    // Example output
+    for (int i = 0; i < N; i++) {
+        printf("Walker %d final position: (%d, %d, %d), steps = %ld\n", i, x[i], y[i], z[i], targets[i]);
+    }
+
+    // Cleanup
+    free(x); free(y); free(z); free(seeds); free(targets);
 }
