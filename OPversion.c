@@ -2,6 +2,42 @@
 #include <stdlib.h>
 #include <time.h>
 
+typedef struct {
+    int x, y, z;
+} Position;
+
+typedef struct {
+    Position *data;
+    size_t size;
+    size_t capacity;
+} Trajectory;
+
+// Initialize trajectory
+void init_trajectory(Trajectory *traj, size_t initial_capacity) {
+    traj->data = (Position *)malloc(initial_capacity * sizeof(Position));
+    traj->size = 0;
+    traj->capacity = initial_capacity;
+}
+
+// Append to trajectory
+void append_trajectory(Trajectory *traj, int x, int y, int z) {
+    if (traj->size >= traj->capacity) {
+        traj->capacity *= 2;
+        traj->data = (Position *)realloc(traj->data, traj->capacity * sizeof(Position));
+    }
+    traj->data[traj->size++] = (Position){x, y, z};
+}
+
+// Free trajectory
+void free_trajectory(Trajectory *traj) {
+    free(traj->data);
+}
+
+// Uniform random number between 0 and 1
+static inline double uniform_rand() {
+    return (double)rand() / (double)RAND_MAX;
+}
+
 // Uniform random number between 0 and 1
 static inline double uniform_rand() {
     return (double)rand() / (double)RAND_MAX;
@@ -32,3 +68,66 @@ double compute_S_alpha(double t, double alpha) {
     return S_alpha;
 }
 
+
+Trajectory run_single_trajectory(double t, double alpha, double F, int Ly, int Lz) {
+    Trajectory traj;
+    init_trajectory(&traj, 1000); // Start with capacity for 1000 steps
+
+    double S_alpha = compute_S_alpha(t, alpha);
+    if (!isfinite(S_alpha)) {
+        printf("Warning: S_alpha is non-finite (%f). Returning only initial position.\n", S_alpha);
+        append_trajectory(&traj, 0, 0, 0);
+        return traj;
+    }
+
+    int x = 0, y = 0, z = 0;
+    append_trajectory(&traj, x, y, z);
+
+    double exp_F2 = exp(F / 2.0);
+    double exp_negF2 = exp(-F / 2.0);
+    double A = 4.0 + exp_F2 + exp_negF2;
+    
+    if (A == 0.0) {
+        printf("Error: Normalization constant A is zero.\n");
+        return traj;
+    }
+
+    double probs[6] = {
+        exp_F2 / A,         // +X
+        exp_negF2 / A,      // -X
+        1.0 / A,            // +Y
+        1.0 / A,            // -Y
+        1.0 / A,            // +Z
+        1.0 / A             // -Z
+    };
+
+    // Convert to cumulative probabilities for binary decision
+    for (int i = 1; i < 6; i++) {
+        probs[i] += probs[i - 1];
+    }
+
+    long n_steps = 0;
+    long target_steps = (long)(S_alpha);
+
+    while (n_steps < target_steps) {
+        double r = uniform_rand();
+        if (r < probs[0]) {
+            x += 1;
+        } else if (r < probs[1]) {
+            x -= 1;
+        } else if (r < probs[2]) {
+            y = (y + 1) % Ly;
+        } else if (r < probs[3]) {
+            y = (y - 1 + Ly) % Ly;
+        } else if (r < probs[4]) {
+            z = (z + 1) % Lz;
+        } else {
+            z = (z - 1 + Lz) % Lz;
+        }
+
+        append_trajectory(&traj, x, y, z);
+        n_steps++;
+    }
+
+    return traj;
+}
