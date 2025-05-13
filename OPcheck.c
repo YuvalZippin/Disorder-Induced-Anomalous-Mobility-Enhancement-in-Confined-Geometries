@@ -126,7 +126,7 @@ int main() {
     double F = 0.1;
     int Ly = 32, Lz = 32;
     int num_sims = 10000;
-    double t_min = 1.0, t_max = 100.0;
+    double t_min = 1.0, t_max = 1000.0;
     int t_steps = 50;
 
     export_first_moment_vs_time(
