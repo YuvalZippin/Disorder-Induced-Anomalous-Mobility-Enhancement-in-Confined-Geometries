@@ -567,7 +567,7 @@ def main():
 
     ALPHA = 0.5
     FORCE = 0.1
-    NUM_SIMS = 5_000
+    NUM_SIMS = 15_000
     WIDTH = 30
     HIGHT = 30
 
