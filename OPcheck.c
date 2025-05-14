@@ -125,7 +125,7 @@ int main() {
     double alpha = 0.5;
     double F = 0.1;
     int Ly = 32, Lz = 32;
-    int num_sims = 10000;
+    int num_sims = 15000;
     double t_min = 1.0, t_max = 1000.0;
     int t_steps = 50;
 
