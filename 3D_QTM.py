@@ -610,7 +610,7 @@ def main():
 
         elif choice == '4':
             print("Plotting mean final position vs target time...")
-            t_values = np.logspace(1, 3, num=10)  # e.g., t from 10 to 1000
+            t_values = np.logspace(1, 4, num=10)  # e.g., t from 10 to 1000
             alpha = ALPHA
             F = FORCE
             Ly = WIDTH
