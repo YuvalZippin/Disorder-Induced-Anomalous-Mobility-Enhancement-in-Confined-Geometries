@@ -121,8 +121,7 @@ public:
 
 class SimulationRunner {
 public:
-    static double calculate_mean_final_x_position(double t, double alpha, double F, 
-                                                  int W, int H, int num_sims) {
+    static double calculate_mean_final_x_position(double t, double alpha, double F, int W, int H, int num_sims) {
         RandomWalker3D walker(W, H, F);
         double sum_x = 0.0;
         
@@ -130,13 +129,11 @@ public:
             double final_x = walker.run_single_trajectory(t, alpha);
             sum_x += final_x;
         }
-        
         return sum_x / num_sims;
     }
-    
-    static void analyze_mean_x_vs_time(const std::vector<double>& t_values, 
-                                       double alpha, double F, int W, int H, 
-                                       int num_sims, const std::string& filename) {
+    static void analyze_mean_x_vs_time(const std::vector<double>& t_values,
+                                         double alpha, double F, int W, int H,
+                                         int num_sims, const std::string& filename) {
         std::ofstream file(filename);
         
         // Write CSV header
