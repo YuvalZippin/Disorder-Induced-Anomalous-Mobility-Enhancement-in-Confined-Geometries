@@ -170,12 +170,12 @@ int main() {
     double F = 1.0;          // Force parameter
     int W = 100;             // Y boundary size
     int H = 100;             // Z boundary size  
-    int num_sims = 75000;     // Number of simulations per time point
+    int num_sims = 100000;     // Number of simulations per time point
     
     // Time range parameters
     double t_start = 0.0;    // Starting time value
-    double t_finish = 100.0;  // Ending time value
-    double t_step = 20.0;     // Step size for time values
+    double t_finish = 1000.0;  // Ending time value
+    double t_step = 100.0;     // Step size for time values
 
     // Generate time values
     std::vector<double> t_values;
@@ -192,7 +192,7 @@ int main() {
     std::cout << "Simulations per time point: " << num_sims << "\n\n";
     
     // Run analysis and save to CSV
-    SimulationRunner::analyze_mean_x_vs_time(t_values, alpha, F, W, H, num_sims,"random_walker_results.csv");
-    
+    SimulationRunner::analyze_mean_x_vs_time(t_values, alpha, F, W, H, num_sims,"random_walker_results_01.csv");
+
     return 0;
 }
