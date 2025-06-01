@@ -454,6 +454,10 @@ def plot_msd_vs_time_S_alpha(t_values: list[float], alpha: float, F: float, Ly: 
     plt.tight_layout()
     plt.show()
 
+
+
+
+
 # !!!
 
 def calculate_fitted_A(
@@ -562,12 +566,23 @@ def plot_A_vs_L(
 
 
 
+
+
+
+
+
+
+
+
+
+
+
 #? Main function to run the program:
 def main():
 
     ALPHA = 0.5
     FORCE = 0.1
-    NUM_SIMS = 15_000
+    NUM_SIMS = 25_000
     WIDTH = 30
     HIGHT = 30
 
