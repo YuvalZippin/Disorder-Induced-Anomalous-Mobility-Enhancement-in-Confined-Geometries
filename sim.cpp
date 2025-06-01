@@ -192,8 +192,7 @@ int main() {
     std::cout << "Simulations per time point: " << num_sims << "\n\n";
     
     // Run analysis and save to CSV
-    SimulationRunner::analyze_mean_x_vs_time(t_values, alpha, F, W, H, num_sims, 
-                                             "random_walker_results.csv");
+    SimulationRunner::analyze_mean_x_vs_time(t_values, alpha, F, W, H, num_sims,"random_walker_results.csv");
     
     return 0;
 }
