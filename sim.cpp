@@ -165,12 +165,12 @@ int main() {
     // Simulation parameters
     double alpha = 0.5;      // Stability parameter
     double F = 1.0;          // Force parameter
-    int W = 100;             // Y boundary size
-    int H = 100;             // Z boundary size  
-    int num_sims = 100000;     // Number of simulations per time point
+    int W = 1;             // Y boundary size
+    int H = 1;             // Z boundary size
+    int num_sims = 125000;     // Number of simulations per time point
     
     // Time range parameters
-    double t_start = 0.0;    // Starting time value
+    double t_start = 0.0;  // Starting time value
     double t_finish = 1000.0;  // Ending time value
     double t_step = 100.0;     // Step size for time values
 
@@ -193,3 +193,5 @@ int main() {
 
     return 0;
 }
+//g++ -fopenmp -o sim sim.cpp -std=c++11 -O3
+// ./sim
