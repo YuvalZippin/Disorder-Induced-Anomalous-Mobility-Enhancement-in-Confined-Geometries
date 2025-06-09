@@ -165,8 +165,8 @@ int main() {
     // Simulation parameters
     double alpha = 0.5;      // Stability parameter
     double F = 0.1;          // Force parameter
-    int W = 0;             // Y boundary size
-    int H = 0;             // Z boundary size
+    int W = 100;             // Y boundary size
+    int H = 100;             // Z boundary size
     int num_sims = 150000;     // Number of simulations per time point
     
     // Time range parameters
