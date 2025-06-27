@@ -335,25 +335,25 @@ public:
 
 int main() {
     // Set number of OpenMP threads (adjust for your server)
-    omp_set_num_threads(16);  // Using 6 out of 64 cores as requested
+    omp_set_num_threads(115);  // Using 6 out of 64 cores as requested
 
     // Simulation parameters (from your qualitative measurement)
     double alpha = 0.5;        // Stability parameter
-    double F = 0.1;           // Force parameter
-    int num_sims = 150000;    // Number of simulations per time point
+    double F = 0.05;           // Force parameter
+    int num_sims = 50000;    // Number of simulations per time point
     
     // Time range parameters
-    double t_start = 0.0;     // Starting time value
-    double t_finish = 10000.0; // Ending time value
+    double t_start = 100.0;     // Starting time value
+    double t_finish = 50000.0; // Ending time value
     double t_step = 100.0;    // Step size for time values
     
     // System size range parameters
-    int L_start = 0;          // Starting system size (avoid L=0 for now)
-    int L_finish = 100;       // Ending system size
-    int L_step = 25;          // Step size for system sizes (gives us 4 points: // 0, 25, 50, 75, 100)
+    int L_start = 1;          // Starting system size (avoid L=0 for now)
+    int L_finish = 3;       // Ending system size
+    int L_step = 1;          // Step size for system sizes (gives us L=1,2,3)
     
     // Analysis parameters
-    int num_repetitions = 10;  // Number of repetitions per L for averaging
+    int num_repetitions = 10000;  // Number of repetitions per L for averaging
     
     // Generate time values
     std::vector<double> t_values;
