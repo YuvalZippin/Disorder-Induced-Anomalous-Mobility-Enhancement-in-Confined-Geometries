@@ -374,29 +374,22 @@ def calculate_mean_squared_displacement(t: float, alpha: float, F: float, Ly: in
 
 # !!!
 
+def msd_worker(args):
+    t, alpha, F, Ly, Lz, num_sims = args
+    return calculate_mean_squared_displacement(t, alpha, F, Ly, Lz, num_sims)
+
 def plot_msd_vs_time_S_alpha(t_values: list[float], alpha: float, F: float, Ly: int, Lz: int, num_sims: int) -> None:
     """
     Compute the MSD components (<X^2>, <Y^2>, <Z^2>) over a range of target times and plot them
     on a log-log scale. Also perform a power-law fit g(t) = A*t^beta for each component.
-    
-    Parameters:
-        t_values (list of float): List/array of target times.
-        alpha (float): Stability parameter.
-        F (float): Bias force in the x-direction.
-        Ly (int): System size in Y.
-        Lz (int): System size in Z.
-        num_sims (int): Number of simulations per target time.
     """
-    mean_x2_vals = []
-    mean_y2_vals = []
-    mean_z2_vals = []
-    
-    for t in t_values:
-        mean_x2, mean_y2, mean_z2 = calculate_mean_squared_displacement(t, alpha, F, Ly, Lz, num_sims)
-        mean_x2_vals.append(mean_x2)
-        mean_y2_vals.append(mean_y2)
-        mean_z2_vals.append(mean_z2)
-    
+    import multiprocessing as mp
+
+    args = [(t, alpha, F, Ly, Lz, num_sims) for t in t_values]
+    with mp.Pool(mp.cpu_count()) as pool:
+        results = pool.map(msd_worker, args)
+
+    mean_x2_vals, mean_y2_vals, mean_z2_vals = zip(*results)
     t_arr = np.array(t_values)
     mean_x2_arr = np.array(mean_x2_vals)
     mean_y2_arr = np.array(mean_y2_vals)
@@ -582,7 +575,7 @@ def main():
 
     ALPHA = 0.5
     FORCE = 0.1
-    NUM_SIMS = 25_000
+    NUM_SIMS = 15_000
     WIDTH = 30
     HIGHT = 30
 
@@ -635,7 +628,7 @@ def main():
 
         elif choice == '5':
             print("Plotting MSD vs target time...")
-            t_values = np.logspace(1, 7, num=100)  # t values from 10 to 1000
+            t_values = np.logspace(1, 14, num=10)  # t values from 10 to 1000
             alpha = ALPHA
             F = FORCE
             Ly = WIDTH
