@@ -12,7 +12,7 @@ struct SimConfig {
     double t_max = 1e17;
     double alpha = 0.3;                 // S_alpha
     double F_input = 0.01;              // nominal force
-    vector<int> Ws = {1,3,5,7,10};           // widths to test
+    vector<int> Ws = {1,3,5,7,9};           // widths to test
     bool use_effective_drift = true;    // use F_eff on x only
     double kappa_alpha = 1.0;           // κ_α amplitude factor (start with 1)
     double c_small_force = 0.02;        // enforce F <= c/w^2
