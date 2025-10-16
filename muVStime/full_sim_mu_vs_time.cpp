@@ -6,9 +6,9 @@ using namespace std;
 
 // ---------------------- Config ----------------------
 struct SimConfig {
-    int N_traj = 2000;                  // trajectories per time point
-    int measurement_points = 20;        // number of time points
-    double t_min = 1e14;                // start time (adjust to see transient)
+    int N_traj = 1000000;                  // trajectories per time point
+    int measurement_points = 17;        // number of time points
+    double t_min = 1e0;                // start time (adjust to see transient)
     double t_max = 1e17;                // end time (plateau region)
     double alpha = 0.3;                 // S_alpha exponent
     double F_input = 0.01;              // applied force
