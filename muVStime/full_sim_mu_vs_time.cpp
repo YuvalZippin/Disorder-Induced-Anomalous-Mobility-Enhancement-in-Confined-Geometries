@@ -1,29 +1,69 @@
-// full_sim_mu_vs_time.cpp
-// Compile: g++ -std=c++17 -O3 -pthread -o full_sim_mu_vs_time full_sim_mu_vs_time.cpp
-// Run:     ./full_sim_mu_vs_time
+// full_sim_mu_vs_time_up.cpp
+// Upgraded μ(t) simulator for 2D/3D periodic strips with CTRW and detailed-balance kernel.
+
 #include <bits/stdc++.h>
 using namespace std;
 
-// ---------------------- Config ----------------------
-struct SimConfig {
-    int N_traj = 2000;                  // trajectories per time point
-    int measurement_points = 20;        // number of time points
-    double t_min = 1e14;                // start time (adjust to see transient)
-    double t_max = 1e17;                // end time (plateau region)
-    double alpha = 0.3;                 // S_alpha exponent
-    double F_input = 0.01;              // applied force
-    int w_fixed = 5;                    // FIXED width for this study
-    bool use_effective_drift = true;    // use F_eff = kappa * F^alpha * w^{-2(1-alpha)}
-    double kappa_alpha = 1.0;           // amplitude for effective drift
-    double c_small_force = 0.02;        // force clamp: F <= c/w^2
+// ---------------------- CLI ----------------------
+struct Args {
+    int dim = 3;                // 2 or 3
+    int w = 5;                  // strip width in transverse direction(s)
+    int N_traj = 30000;        // trajectories per time point
+    int M = 5;                 // number of time points
+    double t_min = 1e1;
+    double t_max = 1e17;
+    double alpha = 0.3;
+    double F = 0.01;            // physical force (used in μ normalization)
+    double kappa_alpha = 1.0;   // effective-drift amplitude
+    bool use_Feff = true;       // use F_eff on x
+    double Klead = 0.19;        // optional theory amplitude for μ∞
+    bool use_tail_muinf = false;// estimate μ∞ from tail instead of Klead
+    int tail_points = 6;        // points for tail median
+    double c_small_force = 0.02;// guard: F <= c/w^2
+    string csv = "results_mu_vs_time_up.csv";
     uint64_t base_seed = 0x9e3779b97f4a7c15ULL;
-    string csv = "results_mu_vs_time.csv";
+    bool verbose_checks = true; // print prob sums, drift, steps/t^alpha
 };
 
-// ---------------------- Math helpers ----------------------
-inline double gamma1p(double a) { return std::tgamma(1.0 + a); }
+static inline bool get_arg(int argc, char** argv, const string& key) {
+    for (int i=1;i<argc;i++) if (string(argv[i])==key) return true;
+    return false;
+}
+template<typename T> static inline T get_argv(int argc, char** argv, const string& key, T def) {
+    for (int i=1;i<argc-1;i++) if (string(argv[i])==key) {
+        if constexpr (is_same<T,string>::value) return string(argv[i+1]);
+        else {
+            std::istringstream is(argv[i+1]); T v; is>>v; return v;
+        }
+    }
+    return def;
+}
 
-// SplitMix64 for seeding
+Args parse_args(int argc, char** argv){
+    Args a;
+    a.dim = get_argv<int>(argc,argv,"--dim",a.dim);
+    a.w   = get_argv<int>(argc,argv,"--w",a.w);
+    a.N_traj = get_argv<int>(argc,argv,"--N",a.N_traj);
+    a.M   = get_argv<int>(argc,argv,"--M",a.M);
+    a.t_min = get_argv<double>(argc,argv,"--tmin",a.t_min);
+    a.t_max = get_argv<double>(argc,argv,"--tmax",a.t_max);
+    a.alpha = get_argv<double>(argc,argv,"--alpha",a.alpha);
+    a.F = get_argv<double>(argc,argv,"--F",a.F);
+    a.kappa_alpha = get_argv<double>(argc,argv,"--kappa",a.kappa_alpha);
+    a.use_Feff = !get_arg(argc,argv,"--no-feff");
+    a.Klead = get_argv<double>(argc,argv,"--Klead",a.Klead);
+    a.use_tail_muinf = get_arg(argc,argv,"--auto-tail");
+    a.tail_points = get_argv<int>(argc,argv,"--tail-points",a.tail_points);
+    a.c_small_force = get_argv<double>(argc,argv,"--c-small",a.c_small_force);
+    a.csv = get_argv<string>(argc,argv,"--csv",a.csv);
+    a.base_seed = get_argv<uint64_t>(argc,argv,"--seed",a.base_seed);
+    a.verbose_checks = !get_arg(argc,argv,"--quiet");
+    return a;
+}
+
+// ---------------------- RNG & math ----------------------
+inline double gamma1p(double a) { return std::tgamma(1.0 + a); } // Γ(1+α)
+
 static inline uint64_t splitmix64(uint64_t &x) {
     uint64_t z = (x += 0x9e3779b97f4a7c15ULL);
     z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
@@ -31,227 +71,205 @@ static inline uint64_t splitmix64(uint64_t &x) {
     return z ^ (z >> 31);
 }
 
-// 3D normalization with cosh form
-inline double norm3d_from_halfF(double Fhalf) { 
-    return 1.0 / (2.0 * std::cosh(Fhalf) + 4.0); 
-}
-
-// Small-force guard
-inline double clamp_force_for_width(double F_in, int w, double c_small_force) {
-    double bound = c_small_force / (double(w) * double(w));
-    return std::min(F_in, bound);
-}
-
-// ---------------------- Probabilities ----------------------
-struct ProbX { double p_plus_x, p_minus_x; };
-struct ProbYZ { double p_plus_y, p_minus_y, p_plus_z, p_minus_z; };
-
-ProbX compute_probabilities_x(double F_eff) {
-    double Bx = norm3d_from_halfF(F_eff / 2.0);
-    ProbX px;
-    px.p_plus_x  = Bx * std::exp(F_eff / 2.0);
-    px.p_minus_x = Bx * std::exp(-F_eff / 2.0);
-    return px;
-}
-
-ProbYZ compute_probabilities_yz() {
-    double By = norm3d_from_halfF(0.0);
-    return ProbYZ{By, By, By, By};
-}
-
-// ---------------------- CMS one-sided S_alpha ----------------------
+// CTRW steps via CMS-based one-sided α-stable mapping
 uint64_t generate_steps(double alpha, double t, std::mt19937_64 &rng) {
     std::uniform_real_distribution<double> U(0.0, 1.0);
     std::uniform_real_distribution<double> Utheta(0.0, M_PI);
     double theta = Utheta(rng);
     double x = U(rng);
     double W = -std::log(x);
-    
-    double a_num = std::sin((1.0 - alpha) * theta) * 
+    double a_num = std::sin((1.0 - alpha) * theta) *
                    std::pow(std::sin(alpha * theta), alpha / (1.0 - alpha));
     double a_den = std::pow(std::sin(theta), 1.0 / (1.0 - alpha));
     double a_theta = a_num / a_den;
     double eta = std::pow(a_theta / W, (1.0 - alpha) / alpha);
-    
     uint64_t s = (uint64_t)std::ceil(std::pow(t / eta, alpha));
     if (s < 1ULL) s = 1ULL;
     return s;
 }
 
-// ---------------------- Trajectory simulation ----------------------
-struct CumProb { double c1, c2, c3, c4, c5, c6; };
-
-inline CumProb build_cum(const ProbX& px, const ProbYZ& pyz) {
-    CumProb c;
-    c.c1 = px.p_plus_x;
-    c.c2 = c.c1 + px.p_minus_x;
-    c.c3 = c.c2 + pyz.p_plus_y;
-    c.c4 = c.c3 + pyz.p_minus_y;
-    c.c5 = c.c4 + pyz.p_plus_z;
-    c.c6 = 1.0;
-    return c;
+// Small-force clamp F <= c/w^2
+inline double clamp_force_for_width(double F_in, int w, double c_small_force) {
+    double bound = c_small_force / (double(w) * double(w));
+    return std::min(F_in, bound);
 }
 
-int64_t simulate_trajectory(int w, const ProbX &px, const ProbYZ &pyz, 
-                           double alpha, double t, std::mt19937_64 &rng, 
-                           uint64_t &steps_out) {
-    uint64_t steps = generate_steps(alpha, t, rng);
-    steps_out = steps;
-    int64_t x = 0;
-    int y = 0, z = 0;
-    std::uniform_real_distribution<double> U(0.0, 1.0);
-    CumProb cp = build_cum(px, pyz);
-    
-    int64_t x_sum = 0;
-    for (uint64_t s = 0; s < steps; ++s) {
-        double r = U(rng);
-        if (r < cp.c1) {
-            ++x; ++x_sum;
-        } else if (r < cp.c2) {
-            --x; --x_sum;
-        } else if (r < cp.c3) {
-            y = (y + 1) % w;
-        } else if (r < cp.c4) {
-            y = (y - 1 + w) % w;
-        } else if (r < cp.c5) {
-            z = (z + 1) % w;
-        } else {
-            z = (z - 1 + w) % w;
-        }
-    }
-    return x_sum;
+// ---------------------- Probabilities (2D/3D) ----------------------
+struct Probs {
+    // ordering: +x,-x, +y,-y, +z,-z (z unused in 2D)
+    array<double,6> p{};
+    int used = 4; // 4 in 2D, 6 in 3D
+};
+struct CumProb { array<double,6> c{}; int used=4; };
+
+inline Probs compute_probs(int dim, double Feff){
+    // neighbors: 2 along x, and 2*(dim-1) transverse
+    int used = (dim==2?4:6);
+    double B = 1.0 / (2.0*std::cosh(Feff/2.0) + 2.0*(dim-1));
+    Probs pr; pr.used = used;
+    pr.p[0] = B * std::exp(+Feff/2.0); // +x
+    pr.p[1] = B * std::exp(-Feff/2.0); // -x
+    pr.p[2] = B;                       // +y
+    pr.p[3] = B;                       // -y
+    pr.p[4] = (dim==3? B : 0.0);       // +z
+    pr.p[5] = (dim==3? B : 0.0);       // -z
+    return pr;
+}
+inline CumProb build_cum(const Probs& pr){
+    CumProb cp; cp.used = pr.used;
+    double s=0.0;
+    for(int i=0;i<pr.used;i++){ s+=pr.p[i]; cp.c[i]=s; }
+    if(pr.used==6) cp.c[5] = 1.0;
+    else if(pr.used==4) cp.c[3] = 1.0;
+    return cp;
 }
 
-// ---------------------- Worker thread ----------------------
+// ---------------------- Trajectory ----------------------
 struct Accum {
     double x_sum = 0.0;
     uint64_t steps_max = 0ULL;
     uint64_t steps_sum = 0ULL;
 };
 
-void worker_block(int w, const ProbX &px, const ProbYZ &pyz, double alpha, 
-                  double t, uint64_t seed, int i0, int i1, Accum &out) {
+int64_t simulate_traj(int dim, int w, const Probs &pr,
+                      double alpha, double t, std::mt19937_64 &rng, uint64_t &steps_out) {
+    uint64_t steps = generate_steps(alpha, t, rng);
+    steps_out = steps;
+    int64_t x_disp = 0;
+    int y=0,z=0;
+
+    std::uniform_real_distribution<double> U(0.0,1.0);
+    CumProb cp = build_cum(pr);
+
+    for(uint64_t s=0; s<steps; ++s){
+        double r = U(rng);
+        if(r < cp.c[0]) { ++x_disp; }
+        else if(r < cp.c[1]) { --x_disp; }
+        else if(r < cp.c[2]) { y = (y+1)%w; }
+        else if(r < cp.c[3]) { y = (y-1+w)%w; }
+        else if(dim==3 && r < cp.c[4]) { z = (z+1)%w; }
+        else if(dim==3) { z = (z-1+w)%w; }
+    }
+    return x_disp;
+}
+
+void worker_block(int dim, int w, const Probs &pr, double alpha, double t,
+                  uint64_t seed, int i0, int i1, Accum &out) {
     std::mt19937_64 rng(seed);
     double local_x = 0.0;
     uint64_t local_steps_max = 0ULL;
     uint64_t local_steps_sum = 0ULL;
-    
-    for (int i = i0; i < i1; ++i) {
-        uint64_t steps_out = 0ULL;
-        int64_t x_disp = simulate_trajectory(w, px, pyz, alpha, t, rng, steps_out);
-        local_x += (double)x_disp;
+    for(int i=i0;i<i1;++i){
+        uint64_t steps_out=0ULL;
+        int64_t xd = simulate_traj(dim,w,pr,alpha,t,rng,steps_out);
+        local_x += (double)xd;
         local_steps_sum += steps_out;
-        if (steps_out > local_steps_max) local_steps_max = steps_out;
+        if(steps_out > local_steps_max) local_steps_max = steps_out;
     }
-    
     out.x_sum = local_x;
     out.steps_max = local_steps_max;
     out.steps_sum = local_steps_sum;
 }
 
 // ---------------------- Main ----------------------
-int main() {
+int main(int argc, char** argv){
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
-    
-    SimConfig cfg;
+
+    Args cfg = parse_args(argc,argv);
+    if(cfg.dim!=2 && cfg.dim!=3){ cerr<<"dim must be 2 or 3\n"; return 1; }
+
     unsigned int n_threads = std::thread::hardware_concurrency();
-    if (n_threads == 0) n_threads = 1;
-    
-    // Log-spaced times
-    vector<double> times(cfg.measurement_points);
+    if(n_threads==0) n_threads=1;
+
+    // log-spaced times
+    vector<double> times(cfg.M);
     double lgmin = std::log10(cfg.t_min), lgmax = std::log10(cfg.t_max);
-    double d = (lgmax - lgmin) / (cfg.measurement_points - 1);
-    for (int i = 0; i < cfg.measurement_points; ++i) {
-        times[i] = std::pow(10.0, lgmin + d * i);
-    }
-    
+    double d = (cfg.M>1? (lgmax - lgmin)/(cfg.M - 1) : 0.0);
+    for(int i=0;i<cfg.M;i++) times[i] = std::pow(10.0, lgmin + d*i);
+
+    // small-force clamp
+    double F_use = clamp_force_for_width(cfg.F, cfg.w, cfg.c_small_force);
+
+    // μ∞ from Klead or estimated later from tail
+    double mu_inf_from_K = cfg.Klead * std::pow((double)cfg.w, -2.0*(1.0 - cfg.alpha));
+
+    cout<<"=== Upgraded μ(t) sim ===\n";
+    cout<<"dim="<<cfg.dim<<" w="<<cfg.w<<" N_traj="<<cfg.N_traj<<" threads="<<n_threads<<"\n";
+    cout<<"alpha="<<cfg.alpha<<" F_in="<<cfg.F<<" F_use="<<F_use<<" use_Feff="<<(cfg.use_Feff?"ON":"OFF")<<"\n";
+    cout<<"Klead="<<cfg.Klead<<" -> mu_inf(K)="<<mu_inf_from_K<<"  auto_tail="<<(cfg.use_tail_muinf?"ON":"OFF")<<"\n\n";
+
     ofstream out(cfg.csv);
-    out << "t,F_used,average_x,mu_sim,mu_theory,steps_max,steps_mean\n";
-    
-    cout << "=== Mu vs Time Simulation ===\n";
-    cout << "Threads: " << n_threads << ", N_traj: " << cfg.N_traj << "\n";
-    cout << "Alpha: " << cfg.alpha << ", F_input: " << cfg.F_input << "\n";
-    cout << "Fixed width w = " << cfg.w_fixed << "\n";
-    cout << "Effective drift: " << (cfg.use_effective_drift ? "ON" : "OFF") << "\n\n";
-    
-    // Precompute transverse probabilities (unbiased)
-    ProbYZ pyz = compute_probabilities_yz();
-    
-    // Clamp force for the fixed width
-    double F_use = clamp_force_for_width(cfg.F_input, cfg.w_fixed, cfg.c_small_force);
-    cout << "Clamped force F = " << F_use << "\n\n";
-    
-    // Theoretical μ plateau: μ_th = K_lead * w^{-2(1-α)}
-    // We'll estimate K_lead from late-time data or use expected value
-    // For now, set a placeholder (user can update after first run)
-    double K_lead_theory = 0.19;  // UPDATE THIS based on your theory/previous runs
-    double mu_theory_plateau = K_lead_theory * 
-        std::pow((double)cfg.w_fixed, -2.0 * (1.0 - cfg.alpha));
-    
-    cout << "Expected mu plateau ≈ " << mu_theory_plateau 
-         << " (using K_lead = " << K_lead_theory << ")\n\n";
-    
-    // Time loop
-    for (int m = 0; m < cfg.measurement_points; ++m) {
+    out<<"dim,w,t,F_used,F_eff,average_x,mu_sim,mu_inf,R_of_t,steps_max,steps_mean,prob_sum,delta_x\n";
+
+    vector<double> mu_tail; mu_tail.reserve(cfg.M);
+
+    for(int m=0;m<cfg.M;m++){
         double t = times[m];
-        
-        // Compute effective drift for x
-        double F_eff = cfg.use_effective_drift
-            ? cfg.kappa_alpha * std::pow(F_use, cfg.alpha) * 
-              std::pow((double)cfg.w_fixed, -2.0 * (1.0 - cfg.alpha))
+
+        // Effective drift for x
+        double F_eff = cfg.use_Feff
+            ? cfg.kappa_alpha * std::pow(F_use, cfg.alpha) * std::pow((double)cfg.w, -2.0*(1.0 - cfg.alpha))
             : F_use;
-        
-        ProbX px = compute_probabilities_x(F_eff);
-        
+
+        // Probabilities (2D/3D) with one B for all neighbors
+        Probs pr = compute_probs(cfg.dim, F_eff);
+
+        // Diagnostics: sum and delta
+        double p_sum = 0.0; for(int i=0;i<pr.used;i++) p_sum += pr.p[i];
+        double delta_x = pr.p[0] - pr.p[1];
+
+        if(cfg.verbose_checks){
+            cout<<fixed<<setprecision(6)
+                <<"t="<<t<<"  B-sum="<<p_sum<<"  delta_x="<<delta_x<<"\n";
+        }
+
         // Launch threads
         int per = cfg.N_traj / (int)n_threads;
         vector<thread> pool;
         vector<Accum> acc(n_threads);
         uint64_t seed = cfg.base_seed ^ (uint64_t)m;
-        
-        for (unsigned int th = 0; th < n_threads; ++th) {
-            uint64_t s = seed; 
-            for (unsigned int k = 0; k <= th; ++k) s = splitmix64(s);
-            int i0 = th * per;
-            int i1 = (th == n_threads - 1) ? cfg.N_traj : i0 + per;
-            pool.emplace_back(worker_block, cfg.w_fixed, cref(px), cref(pyz), 
-                            cfg.alpha, t, s, i0, i1, ref(acc[th]));
+        for(unsigned int th=0; th<n_threads; ++th){
+            uint64_t s=seed; for(unsigned int k=0;k<=th;++k) s=splitmix64(s);
+            int i0 = th*per;
+            int i1 = (th==n_threads-1)? cfg.N_traj : i0+per;
+            pool.emplace_back(worker_block, cfg.dim, cfg.w, cref(pr), cfg.alpha, t, s, i0, i1, ref(acc[th]));
         }
-        for (auto &th : pool) th.join();
-        
-        // Reduce results
-        double x_sum = 0.0;
-        uint64_t steps_max = 0ULL;
-        unsigned __int128 steps_sum128 = 0;
-        for (auto &a : acc) {
-            x_sum += a.x_sum;
-            steps_max = max(steps_max, a.steps_max);
-            steps_sum128 += a.steps_sum;
-        }
+        for(auto& th: pool) th.join();
+
+        // Reduce
+        double x_sum=0.0; uint64_t steps_max=0ULL; unsigned __int128 steps_sum128=0;
+        for(auto &a: acc){ x_sum+=a.x_sum; steps_max=max(steps_max,a.steps_max); steps_sum128+=a.steps_sum; }
         double avg_steps = (double)steps_sum128 / (double)cfg.N_traj;
         double avg_x = x_sum / (double)cfg.N_traj;
-        
-        // Compute μ_sim = <x> / (F^α t^α)
+
+        // μ_sim
         double mu_sim = avg_x / (std::pow(F_use, cfg.alpha) * std::pow(t, cfg.alpha));
-        
-        cout << "t=" << std::scientific << std::setprecision(4) << t
-             << "  <x>=" << avg_x
-             << "  mu_sim=" << mu_sim
-             << "  steps_mean=" << avg_steps << "\n";
-        
-        out << std::setprecision(17) << t << "," 
-            << F_use << "," 
-            << avg_x << ","
-            << mu_sim << ","
-            << mu_theory_plateau << ","
-            << steps_max << "," 
-            << avg_steps << "\n";
+        mu_tail.push_back(mu_sim);
+
+        // choose μ∞ source
+        double mu_inf = mu_inf_from_K;
+        if(cfg.use_tail_muinf){
+            int n = std::min(cfg.tail_points, (int)mu_tail.size());
+            vector<double> tail(mu_tail.end()-n, mu_tail.end());
+            std::nth_element(tail.begin(), tail.begin()+n/2, tail.end());
+            mu_inf = tail[n/2];
+        }
+        double R_of_t = (mu_inf>0.0)? (mu_sim/mu_inf) : std::numeric_limits<double>::quiet_NaN();
+
+        if(cfg.verbose_checks){
+            cout<<scientific<<setprecision(4)
+                <<"   <x>="<<avg_x<<"  mu="<<mu_sim<<"  R="<<R_of_t
+                <<"  steps/t^a="<<(avg_steps/std::pow(t,cfg.alpha))<<"\n";
+        }
+
+        out<<cfg.dim<<","<<cfg.w<<","<<setprecision(17)<<t<<","
+           <<F_use<<","<<F_eff<<","<<avg_x<<","<<mu_sim<<","
+           <<mu_inf<<","<<R_of_t<<","<<steps_max<<","<<avg_steps<<","
+           <<p_sum<<","<<delta_x<<"\n";
     }
-    
+
     out.close();
-    cout << "\nResults saved to: " << cfg.csv << "\n";
-    cout << "\nNext: Use plot_mu_vs_time.py to visualize μ(t) → plateau\n";
-    
+    cout<<"\nSaved CSV: "<<cfg.csv<<"\n";
     return 0;
 }
