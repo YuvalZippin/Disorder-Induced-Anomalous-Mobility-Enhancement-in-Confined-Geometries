@@ -7,9 +7,9 @@ using namespace std;
 
 struct Args {
     int w = 5;
-    int N_traj = 30000;
-    int M = 11;
-    double t_min = 1e7, t_max = 1e15;
+    int N_traj = 300000;
+    int M = 10;
+    double t_min = 1e7, t_max = 1e17;
     double alpha = 0.3;
     double F = 0.01;                 // physical F (used in μ normalization)
     double kappa_alpha = 1.0;        // amplitude in F_eff
