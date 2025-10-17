@@ -8,10 +8,10 @@ using namespace std;
 struct Args {
     int dim = 3;                // 2 or 3
     int w = 5;                  // strip width in transverse direction(s)
-    int N_traj = 30000;        // trajectories per time point
-    int M = 5;                 // number of time points
-    double t_min = 1e1;
-    double t_max = 1e17;
+    int N_traj = 300000;        // trajectories per time point
+    int M = 25;                 // number of time points
+    double t_min = 1e4;
+    double t_max = 1e15;
     double alpha = 0.3;
     double F = 0.01;            // physical force (used in μ normalization)
     double kappa_alpha = 1.0;   // effective-drift amplitude
