@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # plot_graph1.py
 # Usage: python3 plot_graph1.py --csv results_geometry_a.csv --alpha 0.3
+# python3 plot_graph1.py --csv results_geometry_a.csv --alpha 0.3 --out graph_a.png
 
 import argparse
 import numpy as np

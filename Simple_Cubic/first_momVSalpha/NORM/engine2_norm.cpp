@@ -14,7 +14,7 @@
 #include <array>
 
 namespace Config {
-    constexpr uint64_t N_TRAJ = 1000;           // Sufficient stats without extreme bottlenecks
+    constexpr uint64_t N_TRAJ = 10000;           // Sufficient stats without extreme bottlenecks
     constexpr double T_TARGET = 1e5;             // Feasible physical time limit
     constexpr double F_PHYS = 0.05;              // Fixed nominal force
     constexpr double KAPPA_ALPHA = 10.0;         // Amplitude scale factor

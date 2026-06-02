@@ -1,8 +1,8 @@
-// engine2_graph2.cpp
-// PRO-Grade Subordination Engine for Geometry A (PBC) - Alpha Dependence
-// Optimized for Dual Intel Xeon E5-2683 v4 (64 logical threads, 128GB RAM)
-// Compile: g++ -std=c++17 -O3 -march=broadwell -fopenmp -o engine2_graph2 engine2_graph2.cpp
-// Run:     ./engine2_graph2
+// engine3_graphA.cpp
+// PRO-Grade Subordination Engine for Geometry A - Force (F) Dependence
+// Optimized for Dual Intel Xeon E5-2683 v4
+// Compile: g++ -std=c++17 -O3 -march=broadwell -fopenmp -o engine3_graphA engine3_graphA.cpp
+// Run:     ./engine3_graphA
 
 #include <iostream>
 #include <fstream>
@@ -18,16 +18,15 @@
 // PRO Configuration Parameters
 // ---------------------------------------------------------------------
 namespace Config {
-    constexpr uint64_t N_TRAJ = 100000;          // Trajectories per point
-    constexpr double T_TARGET = 1e3;            // Reduced from 1e14 to maintain feasibility at high alpha
-    constexpr double F_PHYS = 0.05;              // Fixed nominal force
+    constexpr uint64_t N_TRAJ = 10000;          // High precision statistics
+    constexpr double T_TARGET = 1e14;            // Observation time limit (safe for alpha=0.3)
+    constexpr double ALPHA = 0.3;                // Fixed anomalous exponent
     constexpr double KAPPA_ALPHA = 10.0;         // Amplitude scale factor
     constexpr uint64_t MASTER_SEED = 0x9e3779b97f4a7c15ULL;
     
-    // Test space: alpha and w
-    const std::array<double, 9> ALPHAS = {0.2, 0.4, 0.6, 0.8};
-    const std::array<int, 4> WIDTHS = {5, 10, 15, 20};
-    const std::string CSV_FILE = "results_graph2.csv";
+    // Test space: w
+    const std::array<int, 3> WIDTHS = {5, 10, 25};
+    const std::string CSV_FILE = "results_graph_a.csv";
 }
 
 // ---------------------------------------------------------------------
@@ -85,24 +84,31 @@ int main() {
     std::cin.tie(nullptr);
 
     const int max_threads = omp_get_max_threads();
-    std::cout << "[SYSTEM] Initializing Engine 2 (Alpha Scan)\n";
+    std::cout << "[SYSTEM] Initializing Engine 3 (Force Dependence)\n";
     std::cout << "[SYSTEM] Hardware Threads: " << max_threads << "\n";
-    std::cout << "[SYSTEM] T_TARGET = " << std::scientific << Config::T_TARGET 
-              << " | F = " << std::fixed << std::setprecision(3) << Config::F_PHYS << "\n\n";
+    std::cout << "[SYSTEM] Alpha = " << Config::ALPHA << " | T = " << std::scientific << Config::T_TARGET << "\n\n";
+
+    // Generate log-spaced forces
+    std::vector<double> forces;
+    constexpr int NUM_F_POINTS = 5;
+    constexpr double F_MIN = 0.01;
+    constexpr double F_MAX = 1.0;
+    for (int i = 0; i < NUM_F_POINTS; ++i) {
+        double exp_val = std::log10(F_MIN) + i * (std::log10(F_MAX) - std::log10(F_MIN)) / (NUM_F_POINTS - 1);
+        forces.push_back(std::pow(10.0, exp_val));
+    }
 
     std::ofstream csv(Config::CSV_FILE);
-    csv << "alpha,w,N_traj,avg_x,mean_steps\n";
+    csv << "w,F,N_traj,avg_x,mean_steps\n";
 
-    // Outer loop: Alpha
-    for (const double alpha : Config::ALPHAS) {
-        const CMSParams cms_params(alpha);
+    const CMSParams cms_params(Config::ALPHA);
 
-        // Inner loop: Width
-        for (const int w : Config::WIDTHS) {
+    for (const int w : Config::WIDTHS) {
+        for (const double F_phys : forces) {
             auto start_time = std::chrono::high_resolution_clock::now();
 
-            // Compute effective scaling and physical transition probabilities
-            const double F_eff = Config::KAPPA_ALPHA * std::pow(Config::F_PHYS, alpha) * std::pow(static_cast<double>(w), -2.0 * (1.0 - alpha));
+            // Compute effective force based on theoretical expectation
+            const double F_eff = Config::KAPPA_ALPHA * std::pow(F_phys, Config::ALPHA) * std::pow(static_cast<double>(w), -2.0 * (1.0 - Config::ALPHA));
             const double norm_factor = 1.0 / (2.0 * std::cosh(F_eff / 2.0) + 4.0);
             
             const double c1 = norm_factor * std::exp(F_eff / 2.0);
@@ -114,22 +120,21 @@ int main() {
             {
                 const int tid = omp_get_thread_num();
                 
-                // Deterministic local seeding incorporating alpha to ensure statistical independence
-                uint64_t state = Config::MASTER_SEED ^ static_cast<uint64_t>(w) ^ static_cast<uint64_t>(alpha * 10000.0);
+                // Deterministic local seeding mixing w and F
+                uint64_t state = Config::MASTER_SEED ^ static_cast<uint64_t>(w) ^ static_cast<uint64_t>(F_phys * 100000.0);
                 for (int i = 0; i <= tid; ++i) state = splitmix64(state);
                 
                 std::mt19937_64 rng(state);
                 std::uniform_real_distribution<double> dist_u(0.0, 1.0);
                 std::uniform_real_distribution<double> dist_th(0.0, M_PI);
 
-                #pragma omp for schedule(dynamic, 1000)
+                #pragma omp for schedule(static)
                 for (uint64_t n = 0; n < Config::N_TRAJ; ++n) {
-                    const uint64_t steps = generate_qtm_steps(Config::T_TARGET, alpha, cms_params, rng, dist_u, dist_th);
+                    const uint64_t steps = generate_qtm_steps(Config::T_TARGET, Config::ALPHA, cms_params, rng, dist_u, dist_th);
                     thread_stats[tid].total_steps += steps;
 
                     int64_t x_disp = 0;
 
-                    // Spatial tracking (Translational Invariance -> Y/Z ignored)
                     for (uint64_t s = 0; s < steps; ++s) {
                         const double r = dist_u(rng);
                         if (r < c1) {
@@ -158,14 +163,13 @@ int main() {
 
             std::cout << std::fixed << std::setprecision(3)
                       << "[T: " << duration.count() << "s] "
-                      << "Alpha = " << std::setprecision(2) << alpha 
-                      << " | w = " << std::setw(2) << w 
-                      << " | <x> = " << std::scientific << std::setprecision(5) << avg_x 
+                      << "w = " << std::setw(2) << w 
+                      << " | F = " << std::fixed << std::setprecision(4) << F_phys 
+                      << " | <x> = " << std::scientific << std::setprecision(17) << avg_x 
                       << " | Avg Steps = " << std::scientific << std::setprecision(2) << mean_steps << "\n";
 
-            csv << std::fixed << std::setprecision(2) << alpha << "," 
-                << w << "," << Config::N_TRAJ << "," 
-                << std::scientific << std::setprecision(16) << avg_x << "," 
+            csv << w << "," << std::fixed << std::setprecision(17) << F_phys << "," << Config::N_TRAJ << "," 
+                << std::scientific << std::setprecision(17) << avg_x << "," 
                 << mean_steps << "\n";
         }
     }

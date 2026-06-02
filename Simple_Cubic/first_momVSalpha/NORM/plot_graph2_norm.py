@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # plot_graph2_norm.py
 # Usage: python3 plot_graph2_norm.py --csv results_graph2_norm.csv
+# python3 plot_graph2_norm.py --csv results_graph2_norm.csv --out graph_c.pns
 
 import argparse
 import numpy as np
