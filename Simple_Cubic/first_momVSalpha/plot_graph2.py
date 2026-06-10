@@ -83,6 +83,8 @@ def main():
     ax.legend(frameon=True, loc='upper right')
     
     plt.tight_layout()
+    #! ax.set_xscale('log')
+    #! ax.set_yscale('log')
 
     # 6. Export
     fig.savefig(args.out, dpi=300, bbox_inches='tight')
