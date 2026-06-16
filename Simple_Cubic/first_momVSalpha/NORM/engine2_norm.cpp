@@ -15,7 +15,7 @@
 
 namespace Config {
     constexpr uint64_t N_TRAJ = 10000;           // Sufficient stats without extreme bottlenecks
-    constexpr double T_TARGET = 1e5;             // Feasible physical time limit
+    constexpr double T_TARGET = 1e10;             // Feasible physical time limit
     constexpr double F_PHYS = 0.05;              // Fixed nominal force
     constexpr double KAPPA_ALPHA = 10.0;         // Amplitude scale factor
     constexpr uint64_t MASTER_SEED = 0x9e3779b97f4a7c15ULL;
@@ -62,8 +62,8 @@ int main() {
     std::cout << "[SYSTEM] Initializing Engine 2 (Normalized)\n";
 
     std::ofstream csv(Config::CSV_FILE);
-    // Added norm_x column
-    csv << "alpha,w,N_traj,avg_x,norm_x,mean_steps\n";
+    // Added norm_Y and ln_norm_Y columns for direct graphing
+    csv << "alpha,w,N_traj,avg_x,norm_Y,ln_norm_Y,mean_steps\n";
 
     for (const double alpha : Config::ALPHAS) {
         const CMSParams cms_params(alpha);
@@ -115,9 +115,17 @@ int main() {
             const double mean_steps = static_cast<double>(total_steps) / static_cast<double>(Config::N_TRAJ);
 
             // --- NORMALIZATION BLOCK ---
-            // norm_x = <x> / (F^alpha * t^alpha)
+            // Replace A_const and D_0 with your exact theoretical scalars
+            const double A_const = 1.0; 
+            const double D_0 = 1.0 / 6.0; 
+            const double A_alpha = A_const * std::tgamma(1.0 + alpha);
+            
+            // Y = <x> * A_alpha / (F^alpha * t^alpha)
             const double normalizer = std::pow(Config::F_PHYS, alpha) * std::pow(Config::T_TARGET, alpha);
-            const double norm_x = avg_x / normalizer;
+            const double norm_Y = (avg_x * A_alpha) / normalizer;
+            
+            // ln(Y) for linear plotting against alpha
+            const double ln_norm_Y = std::log(norm_Y);
 
             auto end_time = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double> duration = end_time - start_time;
@@ -126,12 +134,13 @@ int main() {
                       << "[T: " << duration.count() << "s] "
                       << "Alpha = " << std::setprecision(2) << alpha 
                       << " | w = " << std::setw(2) << w 
-                      << " | norm_x = " << std::scientific << std::setprecision(5) << norm_x << "\n";
+                      << " | ln(norm_Y) = " << std::scientific << std::setprecision(5) << ln_norm_Y << "\n";
 
+            // Save the raw, normalized, and log-normalized values
             csv << std::fixed << std::setprecision(2) << alpha << "," 
                 << w << "," << Config::N_TRAJ << "," 
                 << std::scientific << std::setprecision(16) << avg_x << "," 
-                << norm_x << "," << mean_steps << "\n";
+                << norm_Y << "," << ln_norm_Y << "," << mean_steps << "\n";
         }
     }
     csv.close();
