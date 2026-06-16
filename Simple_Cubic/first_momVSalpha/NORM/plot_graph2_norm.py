@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# plot_graph_c_log.py
-# Usage: python3 plot_graph2_norm.py --csv results_graph2_norm.csv --out graph_c_log.pdf
+# plot_graph2_norm.py
+# Usage: python3 plot_graph2_norm.py --csv results_graph2_norm.csv --out graph2_norm.pdf
 
 import argparse
 import numpy as np
@@ -11,7 +11,7 @@ from matplotlib.lines import Line2D
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--csv", required=True, default="results_graph2_norm.csv")
-    ap.add_argument("--out", default="graph_c_log.pdf")
+    ap.add_argument("--out", default="graph2_norm.pdf")
     args = ap.parse_args()
 
     plt.rcParams.update({
