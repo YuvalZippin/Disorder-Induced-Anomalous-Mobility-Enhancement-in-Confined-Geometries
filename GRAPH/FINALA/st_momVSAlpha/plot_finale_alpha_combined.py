@@ -110,11 +110,16 @@ def main():
     ax.set_ylabel(r'$\frac{\langle x(t) \rangle A_\alpha}{|F|^\alpha t^\alpha}$')
     ax.set_xticks([0.2, 0.4, 0.6, 0.8])
     
+    # ---> THE FIX: Add dynamic headroom for BOTH legends <---
+    ymin, ymax = ax.get_ylim()
+    # Multiplying ymax by 10 pushes the ceiling up. Dividing ymin by 5 pushes the floor down.
+    ax.set_ylim(ymin / 5.0, ymax * 10.0) 
+
     # --- Custom Dual Legend Structure ---
     # Legend 1: Colors mapped to Transverse Width (w)
     color_handles = [Line2D([0], [0], color=colors[i % len(colors)], linewidth=3, 
                             label=rf'$w = {int(w)}$') for i, w in enumerate(plotted_widths)]
-    leg1 = ax.legend(handles=color_handles, title="Transverse Width", loc='upper left', frameon=True)
+    leg1 = ax.legend(handles=color_handles, title="Transverse Width", loc='upper left', frameon=True, framealpha=1.0)
     ax.add_artist(leg1)
     
     # Legend 2: Markers/Lines mapped to Geometry Type
@@ -124,7 +129,7 @@ def main():
         Line2D([0], [0], color='gray', marker='h', linestyle=':', markersize=10, 
                label='Hexagonal (Sim & Theory)')
     ]
-    ax.legend(handles=geom_handles, loc='lower right', frameon=True)
+    ax.legend(handles=geom_handles, loc='lower right', frameon=True, framealpha=1.0)
 
     print("-------------------------------------------\n")
 
