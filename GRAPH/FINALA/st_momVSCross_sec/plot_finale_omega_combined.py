@@ -119,8 +119,8 @@ def main():
     # Formatting
     ax.set_xscale('log')
     ax.set_yscale('log')
-    ax.set_xlabel(r'Transverse Area $\Omega$')
-    ax.set_ylabel(r'$\langle x \rangle$')
+    ax.set_xlabel(r'$\Omega$')
+    ax.set_ylabel(r'$\langle x(t) \rangle$')
     
     # --- Custom Dual Legend Structure ---
     valid_forces = [f for f in args.forces if np.any(np.isclose(df_cubic['F'], f)) or np.any(np.isclose(df_hex['F'], f))]

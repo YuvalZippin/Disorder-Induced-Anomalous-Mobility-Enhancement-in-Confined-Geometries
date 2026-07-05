@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # plot_finale_alpha_combined.py
-# Usage: python3 plot_finale_alpha_combined.py --cubic CUBIC.csv --hex HEX.csv --out graph_alpha_combined.png
-
+# Usage: python3 plot_finale_alpha_combined.py --cubic CUBIC.csv --hex HEX.csv --widths_cubic 5 15 --widths_hex 10 20 --out graph_alpha_combined.png
 
 import argparse
 import numpy as np
@@ -27,6 +26,11 @@ def main():
     ap = argparse.ArgumentParser(description="Grand Finale: Combined Exact Normalized Scaling vs Alpha")
     ap.add_argument("--cubic", required=True, default="CUBIC.csv", help="Input CSV for Cubic (Geometry A)")
     ap.add_argument("--hex", required=True, default="HEX.csv", help="Input CSV for Hexagonal (Geometry B)")
+    
+    # Split the widths argument into two independent lists to prevent visual overlap
+    ap.add_argument("--widths_cubic", type=int, nargs='+', default=[5, 20], help="List of widths (w) to plot for Cubic")
+    ap.add_argument("--widths_hex", type=int, nargs='+', default=[10], help="List of widths (w) to plot for Hexagonal")
+    
     ap.add_argument("--out", default="graph_alpha_combined.png", help="Output filename")
     args = ap.parse_args()
 
@@ -45,19 +49,16 @@ def main():
     })
 
     try:
-        df_cubic = pd.read_csv(args.cubic)
-        df_hex = pd.read_csv(args.hex)
+        df_cubic_full = pd.read_csv(args.cubic)
+        df_hex_full = pd.read_csv(args.hex)
         print(f"[SYSTEM] Loaded {args.cubic} and {args.hex} successfully.")
     except FileNotFoundError:
         print(f"[ERROR] Could not find the CSV files. Please ensure CUBIC.csv and HEX.csv exist.")
         return
 
-    #? --- CLUTTER REDUCTION FILTER ---
-    #! We drop w=15 to leave 3 distinct, spaced-out curves for maximum clarity.
-    # TODO: change this filter if more widths are added in future datasets.
-    target_widths = [5, 10, 20]
-    df_cubic = df_cubic[df_cubic['w'].isin(target_widths) & (df_cubic['alpha'] > 0.0)]
-    df_hex = df_hex[df_hex['w'].isin(target_widths) & (df_hex['alpha'] > 0.0)]
+    # --- DYNAMIC CLUTTER REDUCTION FILTER ---
+    df_cubic = df_cubic_full[df_cubic_full['w'].isin(args.widths_cubic) & (df_cubic_full['alpha'] > 0.0)]
+    df_hex = df_hex_full[df_hex_full['w'].isin(args.widths_hex) & (df_hex_full['alpha'] > 0.0)]
 
     # Engine parameters used in the C++ simulations
     kappa = 10.0
@@ -65,52 +66,54 @@ def main():
 
     fig, ax = plt.subplots()
     
-    # Matching colors to widths
-    colors = ['#1f77b4', '#ff7f0e', '#d62728'] # Blue for 5, Orange for 10, Red for 20
-    unique_widths = np.sort(df_cubic['w'].unique())
+    # Extract all unique widths to be plotted to maintain a consistent color mapping
+    plotted_widths = np.sort(list(set(df_cubic['w'].unique()).union(set(df_hex['w'].unique()))))
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
     
-    print("--- Plotting Combined Geometries (Alpha Dependence) ---")
+    print("--- Rendering Combined Geometries (Alpha Dependence) ---")
+    print(f"[SYSTEM] Plotting Cubic for w={args.widths_cubic}")
+    print(f"[SYSTEM] Plotting Hexagonal for w={args.widths_hex}")
 
-    for idx, w_val in enumerate(unique_widths):
-        c = colors[idx]
+    for idx, w_val in enumerate(plotted_widths):
+        c = colors[idx % len(colors)]
         alpha_dense = np.linspace(0.2, 0.8, 100)
         
         # ==========================================
         # GEOMETRY A (CUBIC) -> Squares ('s'), Dashed ('--')
         # ==========================================
-        df_w_cub = df_cubic[df_cubic['w'] == w_val].sort_values('alpha')
-        alpha_cub = df_w_cub['alpha'].values
-        norm_Y_cub = df_w_cub['norm_Y'].values
-        
-        ax.plot(alpha_cub, norm_Y_cub, marker='s', color=c, linestyle='none', zorder=3)
-        
-        Y_th_cub = exact_theory_cubic(alpha_dense, w_val, kappa, F_phys)
-        ax.plot(alpha_dense, Y_th_cub, color=c, linestyle='--', alpha=0.8, zorder=2)
+        if w_val in args.widths_cubic:
+            df_w_cub = df_cubic[df_cubic['w'] == w_val].sort_values('alpha')
+            if not df_w_cub.empty:
+                alpha_cub = df_w_cub['alpha'].values
+                norm_Y_cub = df_w_cub['norm_Y'].values
+                
+                ax.plot(alpha_cub, norm_Y_cub, marker='s', color=c, linestyle='none', zorder=3)
+                Y_th_cub = exact_theory_cubic(alpha_dense, w_val, kappa, F_phys)
+                ax.plot(alpha_dense, Y_th_cub, color=c, linestyle='--', alpha=0.8, zorder=2)
         
         # ==========================================
         # GEOMETRY B (HEXAGONAL) -> Hexagons ('h'), Dotted (':')
         # ==========================================
-        df_w_hex = df_hex[df_hex['w'] == w_val].sort_values('alpha')
-        alpha_hex = df_w_hex['alpha'].values
-        norm_Y_hex = df_w_hex['norm_Y'].values
-        
-        ax.plot(alpha_hex, norm_Y_hex, marker='h', color=c, linestyle='none', zorder=3)
-        
-        Y_th_hex = exact_theory_hex(alpha_dense, w_val, kappa, F_phys)
-        ax.plot(alpha_dense, Y_th_hex, color=c, linestyle=':', alpha=0.8, zorder=2)
+        if w_val in args.widths_hex:
+            df_w_hex = df_hex[df_hex['w'] == w_val].sort_values('alpha')
+            if not df_w_hex.empty:
+                alpha_hex = df_w_hex['alpha'].values
+                norm_Y_hex = df_w_hex['norm_Y'].values
+                
+                ax.plot(alpha_hex, norm_Y_hex, marker='h', color=c, linestyle='none', zorder=3)
+                Y_th_hex = exact_theory_hex(alpha_dense, w_val, kappa, F_phys)
+                ax.plot(alpha_dense, Y_th_hex, color=c, linestyle=':', alpha=0.8, zorder=2)
 
     # --- Formatting the Log-Scale Equation ---
-    # Plotting on a log-y scale perfectly captures the explicit linear log relations
-    # derived in eq:cubic_log_relation and eq:hex_log_relation natively.
     ax.set_yscale('log')
     ax.set_xlabel(r'$\alpha$')
-    ax.set_ylabel(r'$\frac{\langle x_\parallel(t) \rangle A_\alpha}{|F|^\alpha t^\alpha}$')
+    ax.set_ylabel(r'$\frac{\langle x(t) \rangle A_\alpha}{|F|^\alpha t^\alpha}$')
     ax.set_xticks([0.2, 0.4, 0.6, 0.8])
     
     # --- Custom Dual Legend Structure ---
     # Legend 1: Colors mapped to Transverse Width (w)
-    color_handles = [Line2D([0], [0], color=colors[i], linewidth=3, 
-                            label=rf'$w = {int(w)}$') for i, w in enumerate(unique_widths)]
+    color_handles = [Line2D([0], [0], color=colors[i % len(colors)], linewidth=3, 
+                            label=rf'$w = {int(w)}$') for i, w in enumerate(plotted_widths)]
     leg1 = ax.legend(handles=color_handles, title="Transverse Width", loc='upper left', frameon=True)
     ax.add_artist(leg1)
     

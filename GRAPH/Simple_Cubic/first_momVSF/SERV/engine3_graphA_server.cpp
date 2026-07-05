@@ -25,7 +25,7 @@ namespace Config {
     constexpr uint64_t MASTER_SEED = 0x9e3779b97f4a7c15ULL;
     
     // Test space: w
-    const std::array<int, 3> WIDTHS = {5, 10, 25};
+    const std::array<int, 4> WIDTHS = {5, 10, 15, 20};
     const std::string CSV_FILE = "results_graph_a.csv";
 }
 
