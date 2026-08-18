@@ -107,7 +107,7 @@ def main():
     # --- Formatting the Log-Scale Equation ---
     ax.set_yscale('log')
     ax.set_xlabel(r'$\alpha$')
-    ax.set_ylabel(r'$\frac{\langle x(t) \rangle A_\alpha}{|F|^\alpha t^\alpha}$')
+    ax.set_ylabel(r'$\frac{\langle x(t) \rangle A_\alpha}{F^\alpha t^\alpha}$')
     ax.set_xticks([0.2, 0.4, 0.6, 0.8])
     
     # ---> THE FIX: Add dynamic headroom for BOTH legends <---
