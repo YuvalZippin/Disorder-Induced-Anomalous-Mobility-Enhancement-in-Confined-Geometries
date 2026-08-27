@@ -69,9 +69,28 @@ def polylog_neg(alpha, z, tol=1e-16, jmax=200_000_000):
     return s
 
 
-def predict(a, b, w, F, model, alpha, A, T):
+def g_star(a, b, w, Dpar, Dperp):
+    """Geometric constant of Eqs. (29)-(30): G* = G - a^2/(pi^2 Omega D_par).
+
+    In d = 2 the transverse modes are k_m = 2 pi m / (w b), m = 1 .. w-1.
+    G* is what the paper drops when it writes 1-Q0 = Omega v/a, and it is a
+    TIME-INDEPENDENT systematic -- no amount of extra t removes it.
+    """
+    G = 0.0
+    w = int(round(w))
+    for m in range(1, w):
+        q = math.sqrt((2.0 * math.pi * m / (w * b)) ** 2 * Dperp)
+        G += (1.0 / q) * math.atan(math.pi * math.sqrt(Dpar) / (a * q))
+    G *= a / (math.pi * w * math.sqrt(Dpar))
+    return G - a * a / (math.pi ** 2 * w * Dpar)
+
+
+def predict(a, b, w, F, model, alpha, A, T, gstar=False):
     """Absolute predictions. Returns (eq10, eq35, eps, Lambda)."""
-    v, Dpar, _, eps = transport(a, b, w, F, model)
+    v, Dpar, Dperp, eps = transport(a, b, w, F, model)
+    if gstar and w > 1:
+        # 1-Q0 = 1/(a/(Omega v) + G*) = eps0/(1 + G* eps0)   -- Eqs. (30),(12)
+        eps = eps / (1.0 + g_star(a, b, w, Dpar, Dperp) * eps)
     G = math.gamma(1.0 + alpha)
     Ta = T ** alpha
     eq35 = v * eps ** (alpha - 1.0) * Ta / (A * G * G)          # Eq. (35)
@@ -111,6 +130,14 @@ def wls_loglog(om, x, sx):
 
 # ----------------------------------------------------------------------
 
+def tex_t(T):
+    """2.16e+17 -> $t = 2.2\\times10^{17}$"""
+    e = int(math.floor(math.log10(T)))
+    m = T / 10.0 ** e
+    head = f"{m:.1f}\\times" if abs(m - 1.0) > 0.05 else ""
+    return rf"$t = {head}10^{{{e}}}$"
+
+
 def load(path):
     d = pd.read_csv(path)
     need = {"Omega", "T", "x_mean", "x_stderr", "alpha", "A", "a", "b", "F",
@@ -124,6 +151,9 @@ def load(path):
     return d
 
 
+GSTAR = [False]
+
+
 def cross_check(d, path):
     """Recompute the theory here and compare with what the C++ wrote."""
     if "x_theory_eq10" not in d.columns:
@@ -131,11 +161,15 @@ def cross_check(d, path):
     worst, where = 0.0, None
     for _, r in d.iterrows():
         e10, _, _, _ = predict(r.a, r.b, int(r.Omega), r.F, r.model,
-                               r.alpha, r.A, r["T"])
+                               r.alpha, r.A, r["T"], GSTAR[0])
         if np.isfinite(e10) and np.isfinite(r.x_theory_eq10) and r.x_theory_eq10 > 0:
             rel = abs(e10 / r.x_theory_eq10 - 1.0)
             if rel > worst:
                 worst, where = rel, (int(r.Omega), r["T"])
+    if GSTAR[0]:
+        print(f"[note] {path}: theory includes G* (second order in the drive); "
+              f"the C++ columns do not, so a mismatch below is expected")
+        return
     if worst > 1e-3:
         print(f"[warn] {path}: python and C++ theory differ by {worst:.2%} "
               f"(worst at Omega={where[0]}, T={where[1]:.1e}). Check both.")
@@ -177,8 +211,12 @@ def report(d, path):
           f"{'ratio':>7} {'eps':>8} {'<N>/N*':>8} {'top1%':>7} {'ok':>4}"
     print(hdr)
     for _, r in sub.iterrows():
-        e10 = r.get("x_theory_eq10", np.nan)
-        e35 = r.get("x_theory_eq34", np.nan)
+        if GSTAR[0]:
+            e10, e35, _, _ = predict(r.a, r.b, int(r.Omega), r.F, r.model,
+                                     r.alpha, r.A, r["T"], True)
+        else:
+            e10 = r.get("x_theory_eq10", np.nan)
+            e35 = r.get("x_theory_eq34", np.nan)
         rat = r.x_mean / e10 if (np.isfinite(e10) and e10 > 0) else np.nan
         print(f"  {int(r.Omega):>6d} {r.x_mean:>11.4g} {e10:>11.4g} {e35:>11.4g} "
               f"{rat:>7.3f} {r.eps_theory:>8.2e} {r.N_over_Nstar:>8.1f} "
@@ -209,7 +247,22 @@ def main():
                     help="which absolute prediction to draw")
     ap.add_argument("--hide-invalid", action="store_true",
                     help="drop points outside the validity regime instead of drawing them hollow")
+    ap.add_argument("--gstar", action="store_true",
+                    help="include the second-order geometric constant G* in the "
+                         "theory (Eqs. 29-31) instead of stopping at 1-Q0 = Omega v/a")
     ap.add_argument("--no-crosscheck", action="store_true")
+    ap.add_argument("--single", action="store_true",
+                    help="left panel only, paper style (use a .pdf extension for vector output)")
+    ap.add_argument("--last-T", action="store_true",
+                    help="keep only the largest t, the converged one")
+    ap.add_argument("--figsize", default=None, help="W,H in inches, e.g. 7,5.5")
+    ap.add_argument("--legend", default="full", choices=["full", "guide", "none"],
+                    help="single-panel legend: everything, the guide line only, or nothing")
+    ap.add_argument("--convergence", default=None, metavar="FILE",
+                    help="also write the deficit-vs-t figure that shows the "
+                         "offset is finite-time and decays as a power of t")
+    ap.add_argument("--annotate", action="store_true",
+                    help="stamp a,b,model,F,t,N on the figure so the run is unambiguous")
     args = ap.parse_args()
 
     plt.rcParams.update({
@@ -223,7 +276,14 @@ def main():
     })
 
     frames = [load(p) for p in args.csv]
+    if args.last_T:
+        frames = [d[np.isclose(d["T"], d["T"].max())].copy() for d in frames]
+    if args.single:
+        plt.rcParams["figure.figsize"] = (7.0, 5.5)
+    if args.figsize:
+        plt.rcParams["figure.figsize"] = tuple(float(v) for v in args.figsize.split(","))
     for d, p in zip(frames, args.csv):
+        GSTAR[0] = args.gstar
         if not args.no_crosscheck:
             cross_check(d, p)
         report(d, p)
@@ -233,7 +293,11 @@ def main():
     colors = ["#1f77b4", "#d62728", "#2ca02c", "#ff7f0e", "#9467bd", "#8c564b"]
     markers = ["s", "o", "^", "D", "v"]
 
-    fig, (axL, axR) = plt.subplots(1, 2)
+    if args.single:
+        fig, axL = plt.subplots()
+        axR = None
+    else:
+        fig, (axL, axR) = plt.subplots(1, 2)
 
     all_T = sorted(set(np.concatenate([d["T"].unique() for d in frames])))
     cmap = {T: colors[i % len(colors)] for i, T in enumerate(all_T)}
@@ -252,7 +316,7 @@ def main():
                 continue
             col = cmap[min(all_T, key=lambda z: abs(z - T))]
 
-            th = np.array([predict(a, b, o, F, model, alpha, A, T)[0]
+            th = np.array([predict(a, b, o, F, model, alpha, A, T, args.gstar)[0]
                            for o in sub.Omega.values])
 
             for keep, fill in ((sub.valid == 1, col), (sub.valid == 0, "none")):
@@ -265,17 +329,18 @@ def main():
                 axL.errorbar(s_.Omega, s_.x_mean, yerr=[lo, hi], fmt=mk,
                              color=col, mfc=fill, mec=col, ls="none",
                              capsize=2, elinewidth=1, zorder=4)
-                t_ = th[idx]
-                axR.errorbar(s_.Omega, s_.x_mean / t_,
-                             yerr=[lo / t_, hi / t_], fmt=mk,
-                             color=col, mfc=fill, mec=col, ls="none",
-                             capsize=2, elinewidth=1, zorder=4)
+                if axR is not None:
+                    t_ = th[idx]
+                    axR.errorbar(s_.Omega, s_.x_mean / t_,
+                                 yerr=[lo / t_, hi / t_], fmt=mk,
+                                 color=col, mfc=fill, mec=col, ls="none",
+                                 capsize=2, elinewidth=1, zorder=4)
 
             og = np.logspace(np.log10(sub.Omega.min()), np.log10(sub.Omega.max()), 200)
             for name, ls in (("eq10", "-"), ("eq35", "--")):
                 if args.theory not in (name, "both"):
                     continue
-                yy = np.array([predict(a, b, o, F, model, alpha, A, T)[
+                yy = np.array([predict(a, b, o, F, model, alpha, A, T, args.gstar)[
                                    0 if name == "eq10" else 1] for o in og])
                 ok = np.isfinite(yy) & (yy > 0)
                 axL.plot(og[ok], yy[ok], ls, color=col, lw=1.4, alpha=.85, zorder=2)
@@ -284,49 +349,102 @@ def main():
     d0 = frames[0]
     og = np.logspace(np.log10(d0.Omega.min()), np.log10(d0.Omega.max()), 50)
     top = max(f.x_mean.max() for f in frames)
-    axL.plot(og, 2.2 * top * (og / og[0]) ** slope, "-.", color="k", lw=1.5,
-             label=rf"$\propto \Omega^{{{slope:.2f}}}$")
+    axL.plot(og, 2.2 * top * (og / og[0]) ** slope, "-.", color="k", lw=1.5)
 
     axL.set_xscale("log"); axL.set_yscale("log")
     axL.set_xlabel(r"$\Omega$")
     axL.set_ylabel(r"$\langle x_\parallel(t)\rangle$")
-    axL.legend(loc="lower left", frameon=False)
 
-    axR.axhspan(0.95, 1.05, color="0.85", zorder=0)
-    axR.axhline(1.0, color="k", lw=1.2, ls="-", zorder=1)
-    axR.set_xscale("log")
-    axR.set_xlabel(r"$\Omega$")
-    axR.set_ylabel(r"$\langle x_\parallel\rangle\,/\,\langle x_\parallel\rangle_{\rm Eq.(10)}$")
-    axR.set_title(r"absolute test: on the line $\Rightarrow$ exponent "
-                  r"and prefactor both correct", fontsize=11, pad=8)
+    if axR is not None:
+        axR.axhspan(0.95, 1.05, color="0.85", zorder=0)
+        axR.axhline(1.0, color="k", lw=1.2, ls="-", zorder=1)
+        axR.set_xscale("log")
+        axR.set_xlabel(r"$\Omega$")
+        axR.set_ylabel(r"$\langle x_\parallel\rangle\,/\,"
+                       r"\langle x_\parallel\rangle_{\rm Eq.(10)}$")
+        axR.set_title(r"absolute test: on the line $\Rightarrow$ exponent "
+                      r"and prefactor both correct", fontsize=11, pad=8)
 
-    for ax in (axL, axR):
-        om_all = np.concatenate([f.Omega.values for f in frames])
+    om_all = np.concatenate([f.Omega.values for f in frames])
+    for ax in [a for a in (axL, axR) if a is not None]:
         if om_all.max() / om_all.min() < 30:
             ticks = sorted(set(om_all.astype(int)))
             ax.set_xticks(ticks, minor=False); ax.set_xticks([], minor=True)
             ax.set_xticklabels([str(t) for t in ticks])
 
-    handles = [Line2D([], [], color=cmap[T], marker="s", ls="none",
-                      label=rf"$t={T:.1e}$") for T in all_T]
+    handles = []
+    if len(all_T) > 1:
+        handles += [Line2D([], [], color=cmap[T], marker="s", ls="none",
+                           label=tex_t(T)) for T in all_T]
     if len(frames) > 1:
         handles += [Line2D([], [], color="gray", marker=markers[i % len(markers)],
-                           ls="none", label=p.rsplit("/", 1)[-1])
+                           ls="none", label=p.rsplit("/", 1)[-1].replace(".csv", ""))
                     for i, p in enumerate(args.csv)]
-    if not args.hide_invalid:
-        handles += [Line2D([], [], color="gray", marker="s", mfc="none",
-                           ls="none", label="outside regime")]
-    handles += [Line2D([], [], color="gray", ls="-", label="Eq. (10), exact $\\Lambda$")]
+    _c = cmap[all_T[0]] if (len(all_T) == 1 and len(frames) == 1) else "gray"
+    handles += [Line2D([], [], color=_c, ls="-",
+                       label=("Eq. (10) + $G^*$" if args.gstar
+                              else r"Eq. (10), exact $\Lambda$"))]
     if args.theory in ("eq35", "both"):
         handles += [Line2D([], [], color="gray", ls="--", label="Eq. (35), asymptotic")]
-    axR.set_ylim(axR.get_ylim()[0] - 0.12 * (axR.get_ylim()[1] - axR.get_ylim()[0]),
-                 axR.get_ylim()[1])
-    axR.legend(handles=handles, loc="lower right", fontsize=10, ncol=2,
-               frameon=True, framealpha=0.92, edgecolor="none")
+    if not args.hide_invalid and any((f.valid == 0).any() for f in frames):
+        handles += [Line2D([], [], color="gray", marker="s", mfc="none", ls="none",
+                           label=r"open: $\langle N\rangle/N^*<$ threshold")]
+    guide = Line2D([], [], color="k", ls="-.", label=rf"$\propto \Omega^{{{slope:.2f}}}$")
+
+    if axR is None:
+        sel = {"full": handles + [guide], "guide": [guide], "none": []}[args.legend]
+        if sel:
+            axL.legend(handles=sel, loc="lower left", frameon=False, fontsize=11)
+    else:
+        axL.legend(handles=[guide], loc="lower left", frameon=False)
+        lo_, hi_ = axR.get_ylim()
+        axR.set_ylim(lo_ - 0.12 * (hi_ - lo_), hi_)
+        axR.legend(handles=handles, loc="lower right", fontsize=10, ncol=2,
+                   frameon=True, framealpha=0.92, edgecolor="none")
+
+    if args.annotate:
+        d0_ = frames[0]
+        txt = (rf"$a={d0_.a.iloc[0]:g}$, $b={d0_.b.iloc[0]:g}$, "
+               rf"{d0_.model.iloc[0]}, $F={d0_.F.iloc[0]:.4g}$" "\n"
+               rf"$\alpha={d0_.alpha.iloc[0]:g}$, $A={d0_.A.iloc[0]:g}$, "
+               rf"$t={d0_['T'].max():.1e}$, $N={int(d0_.N_walkers.iloc[0]):,}$")
+        axL.text(0.97, 0.97, txt, transform=axL.transAxes, ha="right", va="top",
+                 fontsize=10, linespacing=1.5)
 
     fig.tight_layout()
     fig.savefig(args.out, dpi=args.dpi, bbox_inches="tight")
     print(f"\n[saved] {args.out}")
+
+    if args.convergence:
+        fc, ac = plt.subplots(figsize=(6.4, 5.0))
+        for fi, d in enumerate(frames):
+            a, b = d.a.iloc[0], d.b.iloc[0]
+            model, A, F = d.model.iloc[0], d.A.iloc[0], d.F.iloc[0]
+            for j, Om in enumerate(sorted(d.Omega.unique())):
+                g = d[d.Omega == Om].sort_values("T")
+                th = np.array([predict(a, b, Om, F, model, alpha, A, T, args.gstar)[0]
+                               for T in g["T"].values])
+                defic = 1.0 - g.x_mean.values / th
+                err = g.x_stderr.values / th
+                pos = defic > 0
+                ac.errorbar(g["T"].values[pos], defic[pos] * 100, yerr=err[pos] * 100,
+                            marker=markers[fi % len(markers)],
+                            color=plt.cm.viridis(j / max(1, len(d.Omega.unique()) - 1) * 0.88), ls="none", capsize=2,
+                            elinewidth=1, label=rf"$\Omega={int(Om)}$" if fi == 0 else None)
+        tt = np.array(sorted(set(np.concatenate([f["T"].values for f in frames]))))
+        ref = 12.0 * (tt / tt.min()) ** (-alpha)
+        ac.plot(tt, ref, "-.", color="k", lw=1.5,
+                label=rf"$\propto t^{{-{alpha:g}}}$")
+        ac.axhline(0.29, color="0.5", ls=":", lw=1.2)
+        ac.text(tt.min(), 0.31, "statistical noise floor", fontsize=10, color="0.4")
+        ac.set_xscale("log"); ac.set_yscale("log")
+        ac.set_xlabel(r"$t$")
+        ac.set_ylabel(r"$100\,\left[1-\langle x_\parallel\rangle/"
+                      r"\langle x_\parallel\rangle_{\rm Eq.(10)}\right]$")
+        ac.legend(frameon=False, fontsize=10, ncol=2)
+        fc.tight_layout()
+        fc.savefig(args.convergence, dpi=args.dpi, bbox_inches="tight")
+        print(f"[saved] {args.convergence}")
 
 
 if __name__ == "__main__":
