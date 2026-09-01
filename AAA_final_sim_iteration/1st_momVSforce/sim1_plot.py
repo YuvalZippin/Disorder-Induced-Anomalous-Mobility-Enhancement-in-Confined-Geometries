@@ -31,10 +31,11 @@ LATNAME = {"cubic": r"cubic", "hex": r"hexagonal"}
 
 # ------------------------------- rc params -----------------------------------
 mpl.rcParams.update({
-    "text.usetex":         True,
+    "text.usetex":         False,         # בוטל השימוש במנוע חיצוני
+    "mathtext.fontset":    "cm",          # שימוש בפונט Computer Modern הפנימי
     "font.family":         "serif",
-    "font.serif":          ["Computer Modern Roman"],
-    "text.latex.preamble": r"\usepackage{amsmath}",
+    "font.serif":          ["cmr10"],     # שם הפונט שהמערכת מזהה
+    # "text.latex.preamble": r"\usepackage{amsmath}", # לא נתמך במנוע הפנימי
     "font.size":           12,
     "axes.labelsize":      14,
     "axes.linewidth":      0.9,
