@@ -33,8 +33,15 @@ constexpr double    LAT_A     = 1.0;         // lattice constant a
 enum RunMode { CUBIC_ONLY, HEX_ONLY, BOTH };
 constexpr RunMode RUN_MODE = BOTH;           // RUN_MODE = BOTH
 
-constexpr int  WIDTHS[]  = {5, 10, 15, 20};  // channel widths w (both lattices)
-constexpr int  N_WIDTHS  = sizeof(WIDTHS)/sizeof(WIDTHS[0]);
+// Transverse widths are DECOUPLED: Omega scales as w^2 (cubic) but as
+// 3w^2-3w+1 (hexagonal), so equal w would mean very different cross-sections.
+// Chosen so the two lattices are matched in Omega, not in w:
+//     cubic w= 3 -> Omega =   9      hex w=2 -> Omega =   7
+//     cubic w=13 -> Omega = 169      hex w=8 -> Omega = 169   (exact match)
+constexpr int CUBIC_WIDTHS[] = {4, 8}; // Omega = w^2
+constexpr int HEX_WIDTHS[]   = {2, 6};   // Omega = 3w^2 - 3w + 1
+constexpr int N_CUBIC_W = sizeof(CUBIC_WIDTHS)/sizeof(CUBIC_WIDTHS[0]);
+constexpr int N_HEX_W   = sizeof(HEX_WIDTHS)  /sizeof(HEX_WIDTHS[0]);
 
 // ---- VALIDITY WINDOW  epsilon = Omega * v_par / a  <<  1 --------------------
 // F_MAX is solved from the EXACT v_par(F) for the MOST RESTRICTIVE channel
@@ -285,9 +292,9 @@ int main() {
     // ---- build channels ----
     std::vector<Channel> chans;
     if (RUN_MODE == CUBIC_ONLY || RUN_MODE == BOTH)
-        for (int i = 0; i < N_WIDTHS; ++i) chans.push_back(make_cubic(WIDTHS[i]));
+        for (int i = 0; i < N_CUBIC_W; ++i) chans.push_back(make_cubic(CUBIC_WIDTHS[i]));
     if (RUN_MODE == HEX_ONLY || RUN_MODE == BOTH)
-        for (int i = 0; i < N_WIDTHS; ++i) chans.push_back(make_hex(WIDTHS[i]));
+        for (int i = 0; i < N_HEX_W;   ++i) chans.push_back(make_hex(HEX_WIDTHS[i]));
     for (const Channel& c : chans)
         if (c.Omega >= (1 << TR_BITS)) { std::fprintf(stderr, "Omega too large\n"); return 1; }
 
